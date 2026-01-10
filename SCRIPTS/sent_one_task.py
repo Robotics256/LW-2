@@ -77,3 +77,4 @@ def send_move_task(point_name: int):
 if __name__ == "__main__":
     # Пример: отправить роботу команду ехать в точку 3
     send_move_task("parking")
+    send_move_task("...") 

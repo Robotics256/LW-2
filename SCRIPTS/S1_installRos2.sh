@@ -24,8 +24,8 @@ sudo pip3 install paho-mqtt
 
 # загрузка примеров ROS2
 # echo "Загрузка примеров ROS2  "
-# mkdir -p ./LR2/ros2_ws/src
-# cd ./LR2/ros2_ws/src
+# mkdir -p ./LW-2/ros2_ws/src
+# cd ./LW-2/ros2_ws/src
 
 # git clone -b humble https://github.com/ROBOTIS-GIT/turtlebot3.git
 # git clone -b humble https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
@@ -35,11 +35,11 @@ sudo pip3 install paho-mqtt
 echo "=========================================="
 echo "Сборка ROS2  "
 echo "=========================================="
-cd ./LR2/ros2_ws
+cd ./LW-2/ros2_ws
 source /opt/ros/humble/setup.bash
 
 # Инициализация rosdep и сборка
-sudo rosdep init || true
+# sudo rosdep init || true 
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 
@@ -55,7 +55,7 @@ pip3 --version
 python3 -c "import paho.mqtt.client; print('paho-mqtt установлен')" 2>/dev/null || echo "paho-mqtt не найден"
 echo "ROS2 дистрибутив: $ROS_DISTRO"
 echo "ROS2 путь: $(which ros2)"
-ls -la ./LR2/ros2_ws/src/ | head -4
+ls -la ./LW-2/ros2_ws/src/ | head -4
 echo "=========================================="
 echo "Установка завершена!"
 echo "=========================================="

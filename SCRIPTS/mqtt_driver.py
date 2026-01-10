@@ -11,21 +11,31 @@ import random
 import queue
 import threading
 import time
+from enum import IntEnum
+import uuid
 
 # ================== CONFIG ==================
-WAYPOINTS_FILE = "./waypoints.txt"
+WAYPOINTS_FILE = "points.txt"
 
-WORKSPACE = "space_v21"
-MODULE_NAME = "amr1_v21"
-MODULE_TYPE = "delivery"
+WORKSPACE = "space_v21"     # переименуйте в соответствии с вашим вариантом
+MODULE_NAME = "amr1_v21"    # переименуйте в соответствии с вашим вариантом
+MODULE_TYPE = "delivery"    
 
-MQTT_BROKER = "broker.emqx.io"
+MQTT_BROKER = "broker.emqx.io"  # тестовый публичный брокер 
 MQTT_PORT = 1883
 MQTT_SUBSCRIBE_TOPIC = f"{WORKSPACE}/devices/in/{MODULE_TYPE}/{MODULE_NAME}"
 MQTT_PUBLISH_TOPIC = f"{WORKSPACE}/devices/out/{MODULE_TYPE}/{MODULE_NAME}"
-# MQTT_USERNAME = "username"
+
+# при использовании приватного брокера установить имя и пароль и расскоментировать строку 95
+# MQTT_USERNAME = "username" 
 # MQTT_PASSWORD = "password"
 # ============================================
+
+class TaskStatus(IntEnum):
+    DONE = 0         # успешное выполнение
+    IN_PROGRESS = 1  # задание в стадии выполнения  
+    ERROR = 2        # ошибка выполнения
+    BUSY = 3         # новое задание не принято, робот занят выполнением другого задания
 
 def load_waypoints(file_path):
     waypoints = []   # [{"name": "...", "pose": PoseStamped()}, ...]
@@ -76,10 +86,10 @@ class MqttNavNode(Node):
         # Текущее и выполненные задания
         self.current_task_id = None
         self.current_task_start = None  # time.time()
-        # task_id -> {"status": 0|2, "start": float, "end": float}
         self.done_tasks = {}
 
         # MQTT
+        self.get_logger().info("Инициализация MQTT")
         self.mqtt_client = mqtt.Client(
             client_id=f"mqtt-nav-{random.randint(0, 10000)}"
         )
@@ -100,6 +110,7 @@ class MqttNavNode(Node):
     def on_connect(self, client, userdata, flags, rc):
         self.get_logger().info("MQTT подключён")
         client.subscribe(MQTT_SUBSCRIBE_TOPIC)
+        self.get_logger().info(f"Подписан на {MQTT_SUBSCRIBE_TOPIC}")
 
     def on_message(self, client, userdata, msg):
         try:
@@ -139,7 +150,7 @@ class MqttNavNode(Node):
                 # 1 — задание на стадии выполнения
                 self.send_task_status(
                     task_id=task_id,
-                    status=1,
+                    status=int(TaskStatus.IN_PROGRESS),
                     report="task in progress"
                 )
                 return
@@ -150,7 +161,7 @@ class MqttNavNode(Node):
                 # статус 3, report "robot execute task [номер текущего задания]"
                 self.send_task_status(
                     task_id=task_id,
-                    status=3,
+                    status=int(TaskStatus.BUSY),
                     report=f"robot execute task {self.current_task_id}"
                 )
                 return
@@ -164,7 +175,7 @@ class MqttNavNode(Node):
                     break
 
             if target_waypoint is None:
-                self.send_task_status(task_id=task_id, status=2, report=f"point '{point_name}' not exists")
+                self.send_task_status(task_id=task_id, status=int(TaskStatus.ERROR), report=f"point '{point_name}' not exists")
                 return
 
             # Сохраняем задачу
@@ -175,7 +186,7 @@ class MqttNavNode(Node):
             # 1 — задание принято и выполняется
             self.send_task_status(
                 task_id=task_id,
-                status=1,
+                status=int(TaskStatus.IN_PROGRESS),
                 report=f"task accepted, go to point {point_name}"
             )
 
@@ -185,11 +196,6 @@ class MqttNavNode(Node):
     # ============== ОТПРАВКА СТАТУСА ===============
     def send_task_status(self, task_id, status, report=None, duration=None):
         """
-        Статусы:
-          0 — успешное выполнение
-          1 — задание в стадии выполнения
-          2 — ошибка выполнения
-          3 — новое задание отвергнуто, робот занят другим
         Если задание выполнено (0) и передано duration,
         она добавляется в ответ.
         """
@@ -201,8 +207,8 @@ class MqttNavNode(Node):
             payload = {
                 "Module": {
                     "Name": MODULE_NAME,
-                    "ModuleType": "delivery",
-                    "UID": 0,
+                    "Type": "delivery",
+                    "UID":  int(uuid.uuid4().int) % 1000000,
                     "Time": timestamp,
                     "Data": {
                         "Task": {
@@ -217,7 +223,7 @@ class MqttNavNode(Node):
                 payload["Module"]["Data"]["Task"]["Report"] = report
 
             if duration is not None:
-                payload["Module"]["Data"]["Task"]["Duration"] = duration
+                payload["Module"]["Data"]["Task"]["Duration"] = int(duration)
 
             json_payload = json.dumps(payload)
             # Отправляем в тот же топик (или другой, если у вас отдельный для статусов)
@@ -231,8 +237,8 @@ class MqttNavNode(Node):
     # ============== NAVIGATION ===============
     def navigation_loop(self):
         """
-        Вызывается таймером.
-        Здесь ЕДИНСТВЕННОЕ место, где вызывается Nav2.
+        Вызывается по таймеру.
+        Здесь вызывается Nav2.
         """
 
         # Если нет активной цели — берём новую
@@ -262,13 +268,13 @@ class MqttNavNode(Node):
                     # 0 — успешное выполнение
                     if self.current_task_id is not None:
                         self.done_tasks[self.current_task_id] = {
-                            "status": 0,
+                            "status": int(TaskStatus.DONE),
                             "start": self.current_task_start,
                             "end": end_time
                         }
                         self.send_task_status(
                             task_id=self.current_task_id,
-                            status=0,
+                            status=int(TaskStatus.DONE),
                             report="task completed",
                             duration=duration
                         )
@@ -279,13 +285,13 @@ class MqttNavNode(Node):
                     # 2 — ошибка выполнения
                     if self.current_task_id is not None:
                         self.done_tasks[self.current_task_id] = {
-                            "status": 2,
+                            "status": int(TaskStatus.ERROR),
                             "start": self.current_task_start,
                             "end": end_time
                         }
                         self.send_task_status(
                             task_id=self.current_task_id,
-                            status=2,
+                            status=int(TaskStatus.ERROR),
                             report=f"navigation result: {result}",
                             duration=duration
                         )

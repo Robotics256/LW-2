@@ -167,9 +167,10 @@ if __name__ == "__main__":
         # ждём успешного выполнения
         client.wait_task_success(task_id, timeout=300)
    
-        # 2) если первое прошло успешно — отправляем второе
+        # 2) если первое задание выполнено — отправляем второе
         task_id = client.send_move_task("...")
         client.wait_task_success(task_id, timeout=300)
+        
     except Exception as e:
         print(f"Ошибка при выполнении задания: {e}")
     finally:
