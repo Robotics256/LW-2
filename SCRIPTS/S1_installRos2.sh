@@ -39,7 +39,7 @@ cd ./LW-2/ros2_ws
 source /opt/ros/humble/setup.bash
 
 # Инициализация rosdep и сборка
-# sudo rosdep init || true 
+sudo rosdep init || true 
 rosdep update
 rosdep install --from-paths src --ignore-src -r -y
 
