@@ -2,7 +2,7 @@
 
 ## Основы цифрового моделирования производственных логистических процессов
 
-Проект демонстрирует управление автономным мобильным роботом TurtleBot3 Burger в симуляторе Gazebo с использованием ROS 2 Humble. В ходе работы строится карта помещения, сохраняются целевые точки, запускается автономная навигация Nav2, а задания роботу передаются через MQTT.
+Проект демонстрирует управление автономным мобильным роботом TurtleBot3 Waffle в симуляторе Gazebo Harmonic с использованием ROS 2 Jazzy. В ходе работы строится карта помещения, сохраняются целевые точки, запускается автономная навигация Nav2, а задания роботу передаются через MQTT.
 
 ## Цель работы
 
@@ -18,10 +18,10 @@
 
 ## Требования
 
-- Ubuntu 22.04, в том числе в WSL2;
-- ROS 2 Humble;
+- Ubuntu 24.04 LTS (Noble), предпочтительно Desktop; для WSL2 нужен графический сервер с OpenGL (например, WSLg);
+- ROS 2 Jazzy;
 - Python 3 с библиотекой `paho-mqtt`;
-- Gazebo Classic, RViz, Cartographer и Navigation2;
+- Gazebo Harmonic, RViz, Cartographer и Navigation2;
 - доступ к интернету для работы с публичным MQTT-брокером;
 - MQTT-клиент, например MQTTX, — при ручной отправке заданий.
 
@@ -33,7 +33,9 @@ LW-2/
 ├── SCRIPTS/
 │   ├── S1_installRos2.sh         # установка ROS 2 и сборка workspace
 │   ├── S2_startSim.sh            # запуск мира TurtleBot3 в Gazebo
+│   ├── S3_startNav.sh            # запуск Nav2 с указанной картой
 │   ├── teleop_keyboard_save.py   # ручное управление и запись точек
+│   ├── show_waypoints.py         # отображение сохранённых точек при запуске мира
 │   ├── mqtt_driver.py            # мост MQTT → Nav2
 │   ├── sent_one_task.py          # отправка отдельного задания
 │   ├── sent_many_task.py         # последовательная отправка заданий
@@ -45,7 +47,7 @@ LW-2/
 
 ## Установка
 
-Скрипт устанавливает ROS 2 Humble, Python-зависимости и собирает workspace. Для его работы необходимы права `sudo` и подключение к интернету.
+Скрипт проверяет Ubuntu 24.04, устанавливает ROS 2 Jazzy, Gazebo Harmonic, Python-зависимости и TurtleBot3 ветки `jazzy`, затем собирает workspace. Для его работы необходимы права `sudo` и подключение к интернету; запуск возможен из любой директории.
 
 ```bash
 chmod +x ./LW-2/SCRIPTS/S1_installRos2.sh
@@ -55,10 +57,99 @@ chmod +x ./LW-2/SCRIPTS/S1_installRos2.sh
 При повторной ручной сборке workspace используйте:
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 cd ~/LW-2/ros2_ws
 colcon build --symlink-install --executor sequential
 ```
+
+## Полная последовательность лабораторной
+
+Ниже приведён рабочий порядок из методички, адаптированный для Ubuntu 24.04,
+ROS 2 Jazzy и TurtleBot3 Waffle. Окна Gazebo и RViz не закрывайте до конца
+соответствующего этапа; каждый блок запускайте в отдельном терминале.
+
+1. Запустите склад:
+
+   ```bash
+   ~/LW-2/SCRIPTS/S2_startSim.sh
+   ```
+
+2. Запустите ручное управление с файлом, в который будут записываться точки:
+
+   ```bash
+   python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+   ```
+
+3. В третьем терминале обязательно запустите Cartographer:
+
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   source ~/LW-2/ros2_ws/install/setup.bash
+   ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
+   ```
+
+   После запуска Cartographer объедьте все доступные проезды. **Во время этого
+   же объезда одновременно расставляйте точки:** останавливайтесь в нужных
+   местах, нажимайте `G` в терминале `teleop_keyboard_save.py` и вводите имена
+   (`parking`, `target1`, `way_a` и т. п.). Повторно проезжать весь склад после
+   сохранения карты не требуется.
+
+4. Когда карта построена и точки записаны, сохраните карту в отдельном
+   терминале. Будут созданы `~/warehouse_map.yaml` и
+   `~/warehouse_map.pgm`:
+
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   source ~/LW-2/ros2_ws/install/setup.bash
+   ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
+     --ros-args -p use_sim_time:=true
+   ```
+
+   После успешного сохранения остановите через `Ctrl+C` Cartographer,
+   `teleop_keyboard_save.py` и симуляцию. Закройте оставшиеся окна RViz и
+   Gazebo.
+
+5. Запустите новую чистую симуляцию, явно указав сохранённый файл точек, а
+   затем в другом терминале запустите Nav2 с сохранённой картой:
+
+   ```bash
+   ~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
+   ```
+
+   ```bash
+   ~/LW-2/SCRIPTS/S3_startNav.sh ~/warehouse_map.yaml
+   ```
+
+   После появления карты в RViz обязательно выберите **2D Pose Estimate** и
+   укажите реальное начальное положение и направление робота. На собственной
+   Cartographer-карте выбирайте точку, где робот находился в начале построения
+   карты; при штатном старте с P2 это обычно около `x=0`, `y=0`, стрелка вправо.
+   Координаты Gazebo `-4.3, -4.5` не следует автоматически переносить в систему
+   координат собственной карты.
+
+6. Проверьте автономное движение напрямую через Nav2, без MQTT. Путь к файлу,
+   имя точки и предельная скорость задаются в команде:
+
+   ```bash
+   python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
+     ~/points.txt target1 --speed 0.15
+   ```
+
+   Скорость должна быть больше `0` и не превышать `0.30` м/с. Несколько имён выполняются
+   последовательно, например `parking way_a target1`.
+
+7. После проверки без MQTT запустите MQTT-драйвер и отправляйте задания из
+   MQTTX либо MQTT-скриптами:
+
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   source ~/LW-2/ros2_ws/install/setup.bash
+   python3 ~/LW-2/SCRIPTS/mqtt_driver.py
+   ```
+
+Перед любой отправкой проверьте, что Nav2 активен, начальная поза задана и в
+`~/points.txt` есть запрошенное имя. Карта и точки создаются за один общий
+объезд, а затем загружаются для локализации и автономного движения.
 
 ## 1. Запуск симуляции
 
@@ -66,25 +157,114 @@ colcon build --symlink-install --executor sequential
 
 ```bash
 chmod +x ./LW-2/SCRIPTS/S2_startSim.sh
-./LW-2/SCRIPTS/S2_startSim.sh
+TURTLEBOT3_MODEL=waffle ./LW-2/SCRIPTS/S2_startSim.sh
 ```
 
 Либо запуск вручную:
 
 ```bash
-export TURTLEBOT3_MODEL=burger
-source ./LW-2/ros2_ws/install/setup.bash
-ros2 launch turtlebot3_gazebo turtlebot3_dqn_stage4.launch.py
+TURTLEBOT3_MODEL=waffle ./LW-2/SCRIPTS/S2_startSim.sh
 ```
 
 Каждый следующий компонент запускайте в отдельной вкладке терминала, не закрывая Gazebo.
 
+### Учебные миры
+
+Параметр `world` выбирает планировку при запуске. Это имя Gazebo-мира, чтобы
+не путать его с аргументом `map:=...` у Nav2.
+
+| Значение | Мир | Статическая карта Nav2 |
+|---|---|---|
+| `large` | Большой склад 12 × 10 м, зоны A и B, T1–T4 | `warehouse.yaml` |
+| `small` | Малый склад 6 × 10 м, зона A, T1/T2/T4 | `warehouse_small.yaml` |
+| `stage4` | Штатный пример `turtlebot3_dqn_stage4` | карту нужно построить Cartographer |
+
+```bash
+~/LW-2/SCRIPTS/S2_startSim.sh world:=large
+~/LW-2/SCRIPTS/S2_startSim.sh world:=small
+~/LW-2/SCRIPTS/S2_startSim.sh world:=stage4
+```
+
+`large` — значение по умолчанию. Пунктирный след доступен в обоих складах;
+для Stage4 аргумент `trail` не добавляет разметку, потому что это исходный мир
+TurtleBot3.
+В запуске симулятора также допустимо `map:=small` как синоним `world:=small`.
+В команде Nav2 `map:=...` по-прежнему означает путь к файлу `.yaml`.
+
+### Большой учебный склад
+
+По умолчанию запускается компактный склад **12 × 10 м**: общая стоянка на семь
+роботов, две зоны по три стеллажа, приёмка, конвейер, станок и отгрузка.
+Стеллажи состоят из квадратных секций 0,5 × 0,5 м. Проходы между ними — 0,8 м;
+боковые основные проезды — 2,1 м. Все стеллажи доходят до центральной стены;
+A2 и B2 двойные: по два ряда коробок.
+Новые стенки разделяют складские зоны, рабочие пункты и стоянку / отгрузку.
+Между севером и югом доступны западный и восточный обходы; центрального сквозного
+проезда нет. Южный поперечный проход — 1,35 м, северный — минимум 1,1 м.
+
+![План склада](docs/warehouse/warehouse_plan.svg)
+
+[Размеры, точки, маршруты, эталонная карта и расширение для группы](docs/warehouse/README.md).
+План и инструкция малого варианта: [малый склад](docs/warehouse/SMALL.md).
+После обновления проекта пересоберите пакет:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd ~/LW-2/ros2_ws
+colcon build --symlink-install --packages-select turtlebot3_gazebo
+```
+
+Выбор Waffle и запуск без графического окна:
+
+```bash
+~/LW-2/SCRIPTS/S2_startSim.sh
+TURTLEBOT3_MODEL=waffle ~/LW-2/SCRIPTS/S2_startSim.sh gui:=false
+```
+
+Waffle — модель по умолчанию во всех командах ниже. Не смешивайте модели между
+терминалами одной симуляции.
+Штатный запуск создаёт **одного** робота на месте P2; семь мест предусмотрены
+для дальнейшей групповой лабораторной. Построение собственной карты и запись
+точек выполняются по разделам ниже.
+
+### Режим пунктирного следа
+
+Склад по умолчанию оставляет за движущимся Waffle синий пунктир на полу.
+Точки появляются примерно через 14 см, являются только визуальными и не имеют
+коллизий: лидар, Cartographer и Nav2 их не видят. След очищается при следующем
+запуске симуляции. Чтобы отключить его, передайте параметр запуска:
+
+```bash
+~/LW-2/SCRIPTS/S2_startSim.sh trail:=false
+```
+
 ## 2. Ручное управление
 
 ```bash
-export TURTLEBOT3_MODEL=burger
-source ./LW-2/ros2_ws/install/setup.bash
-python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py
+python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+```
+
+Для ручного движения с лидарной защитой используйте флаг
+`--collision-monitor`:
+
+```bash
+python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py --collision-monitor ~/points.txt
+```
+
+Скрипт запускает отдельный `nav2_collision_monitor` и направляет команды по
+цепочке `/cmd_vel_teleop → Collision Monitor → /cmd_vel`. В зоне до 0,6 м
+перед Waffle скорость уменьшается до 25 %, а в ближней зоне до 0,35 м спереди
+робот останавливается. Настройки зон находятся в
+`SCRIPTS/teleop_collision_monitor.yaml`. Этот режим защищает именно команды
+ручного управления и может работать одновременно с Nav2, у которого свой
+контур команд.
+
+Скрипт сам подключает ROS 2 Jazzy и workspace. По умолчанию он управляет Waffle.
+Перед вызовом `G` должны работать Cartographer либо Nav2: точки сохраняются в
+системе координат `map`, которую Nav2 использует для целей.
+
+```bash
+TURTLEBOT3_MODEL=waffle python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
 ```
 
 Клавиши управления:
@@ -97,67 +277,116 @@ python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py
 | `G` | остановиться и сохранить текущую позу под заданным именем |
 | `Ctrl+C` | завершить программу |
 
-Клавиши в программе обрабатываются в нижнем регистре. По умолчанию точки добавляются в `./points.txt`, то есть в текущую директорию терминала. Для однозначного сохранения в домашней директории можно передать путь явно:
+Клавиши в программе обрабатываются в нижнем регистре. По умолчанию точки
+добавляются в `~/points.txt`; путь можно передать явно:
 
 ```bash
 python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
 ```
 
-Формат строки в файле: `имя, x, y, orientation_z, orientation_w`.
+Формат строки в файле:
+`имя, map_x, map_y, orientation_z, orientation_w, gazebo_x, gazebo_y`.
+Последние две координаты нужны только для отображения меток в Gazebo; Nav2
+использует координаты `map_x`, `map_y` и ориентацию.
 
 ## 3. Построение и сохранение карты
 
 Запустите Cartographer:
 
 ```bash
-export TURTLEBOT3_MODEL=burger
+export TURTLEBOT3_MODEL=waffle
+source /opt/ros/jazzy/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
 ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
 ```
 
-С помощью программы ручного управления объедьте всё помещение. В RViz должны отобразиться стены, препятствия и доступные проходы. Затем сохраните карту:
-
-```bash
-source ./LW-2/ros2_ws/install/setup.bash
-ros2 run nav2_map_server map_saver_cli -f ~/map --ros-args -p use_sim_time:=true
-```
-
-Будут созданы файлы `~/map.pgm` и `~/map.yaml`. После сохранения остановите Cartographer сочетанием `Ctrl+C`.
-
-## 4. Расстановка точек
-
-Продолжая управлять роботом через `teleop_keyboard_save.py`, перемещайтесь в нужные позиции и нажимайте `G`. Введите уникальное имя точки и нажмите `Enter`.
+С помощью `teleop_keyboard_save.py` объедьте всё помещение. В RViz должны
+отобразиться стены, препятствия и доступные проходы. Во время этого же объезда
+останавливайтесь в нужных местах, нажимайте `G` и сохраняйте именованные точки
+в `~/points.txt`. Таким образом, карта и точки создаются одновременно — второй
+объезд после запуска Nav2 не нужен.
 
 Рекомендуемый набор имён:
 
 - `parking` — место стоянки;
 - `target1` и `target2` — зоны загрузки и выгрузки;
-- `way_a`, `way_b` и другие `way_*` — промежуточные точки маршрутов.
+- `way_a`, `way_e` и другие `way_*` — промежуточные точки маршрутов.
 
-Имена чувствительны к регистру и должны точно совпадать с именами, которые затем передаются в MQTT-заданиях. Файл `~/points.txt` необходим драйверу навигации.
+Когда объезд и расстановка точек закончены, сохраните карту:
 
-## 5. Запуск автономной навигации и MQTT
+```bash
+source ./LW-2/ros2_ws/install/setup.bash
+ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
+  --ros-args -p use_sim_time:=true
+```
 
-Для работы системы одновременно нужны Gazebo, Navigation2 и MQTT-драйвер.
+Будут созданы `~/warehouse_map.pgm` и `~/warehouse_map.yaml`. После успешного
+сохранения остановите через `Ctrl+C` Cartographer, ручное управление и
+симуляцию; закройте RViz и Gazebo.
+
+## 4. Перезапуск сцены и загрузка точек
+
+Запустите сцену заново и укажите созданный на предыдущем этапе файл:
+
+```bash
+~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
+```
+
+`S2_startSim.sh` передаёт путь загрузчику меток. Точки с сохранёнными
+`gazebo_x`, `gazebo_y` отображаются в сцене автоматически; дополнительно они
+публикуются в RViz в топике `/waypoints`. Другой файл можно выбрать заменой
+значения `points_file:=`. Альтернативно путь можно передать переменной окружения
+`TB3_POINTS_FILE`.
+
+Имена чувствительны к регистру и должны точно совпадать с именами, которые
+затем передаются в прямых и MQTT-заданиях.
+
+## 5. Запуск автономной навигации
+
+Для прямой навигации нужны Gazebo и Navigation2. MQTT-драйвер добавляется
+только после проверки обычной отправки цели.
 
 ### Терминал 1 — Gazebo
 
 ```bash
-./LW-2/SCRIPTS/S2_startSim.sh
+~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
 ```
 
 ### Терминал 2 — Navigation2
 
 ```bash
-export TURTLEBOT3_MODEL=burger
-source ./LW-2/ros2_ws/install/setup.bash
-ros2 launch turtlebot3_navigation2 navigation2.launch.py \
-  use_sim_time:=true map:=$HOME/map.yaml
+~/LW-2/SCRIPTS/S3_startNav.sh ~/warehouse_map.yaml
 ```
 
-После появления карты в RViz задайте начальную позицию робота инструментом **2D Pose Estimate**, если локализация не установилась автоматически.
+После появления карты в RViz обязательно задайте начальную позицию робота
+инструментом **2D Pose Estimate**. Положение должно соответствовать фактической
+позиции робота на карте, а стрелка — его направлению. Для карты, построенной от
+штатной стартовой позиции P2, это обычно точка около `x=0`, `y=0` с направлением
+вправо. Для готовой карты с мировой системой координат P2 может иметь
+`x=-4.3`, `y=-4.5`; ориентируйтесь на конкретную карту, а не на Gazebo.
 
-### Терминал 3 — MQTT-драйвер
+### Терминал 3 — цель напрямую, без MQTT
+
+После того как Localization и Navigation в панели Nav2 перешли в состояние
+`active`, отправьте точку из `points.txt`:
+
+```bash
+python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
+  ~/points.txt target1 --speed 0.15
+```
+
+`--speed` задаёт максимальную линейную скорость в м/с. Для складской
+конфигурации используйте значение `0 < speed <= 0.30`; по умолчанию применяется
+`0.20` м/с. Для последовательного маршрута перечислите несколько точек:
+
+```bash
+python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
+  ~/points.txt parking way_a target1 --speed 0.12
+```
+
+Скрипт не изменяет начальную позу AMCL и ждёт, пока она будет задана в RViz.
+
+### Терминал 4 — MQTT-драйвер
 
 Перед запуском при необходимости измените одинаковым образом параметры `WORKSPACE` и `MODULE_NAME` в файлах:
 
@@ -167,11 +396,11 @@ ros2 launch turtlebot3_navigation2 navigation2.launch.py \
 
 В проекте по умолчанию используются вариант 21, пространство `space_v21` и робот `amr1_v21`.
 
-Запускайте драйвер из домашней директории: именно там он по умолчанию ищет `points.txt`.
+Драйвер по умолчанию читает `~/points.txt`, независимо от текущей директории.
 
 ```bash
 cd ~
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
 python3 ./LW-2/SCRIPTS/mqtt_driver.py
 ```
@@ -186,7 +415,7 @@ python3 ./LW-2/SCRIPTS/mqtt_driver.py
 
 Статусы задания: `0` — выполнено, `1` — выполняется, `2` — ошибка, `3` — робот занят и задание отклонено.
 
-## 6. Отправка задания
+## 6. Отправка задания через MQTT
 
 ### Через MQTTX
 
@@ -211,30 +440,32 @@ python3 ./LW-2/SCRIPTS/mqtt_driver.py
 
 Для каждого нового сообщения изменяйте `UID` и `Task.Id`. Поле `Task.Data` должно содержать имя существующей точки из `points.txt`.
 
-### Через Python
+### Через MQTT-скрипты Python
 
 Отправка одного задания:
 
 ```bash
-python3 ./LW-2/SCRIPTS/sent_one_task.py
+python3 ./LW-2/SCRIPTS/sent_one_task.py parking
 ```
 
-Скрипт отправляет команды подряд и не ждёт завершения предыдущего перемещения. Перед запуском замените строку `"..."` в конце файла на существующую точку.
+Скрипт отправляет одно задание. Последний аргумент — существующее имя точки из
+`~/points.txt`; например, замените `parking` на `target1`.
 
 Последовательный маршрут с ожиданием статуса `0` после каждой точки:
 
 ```bash
-python3 ./LW-2/SCRIPTS/sent_many_task.py
+python3 ./LW-2/SCRIPTS/sent_many_task.py parking target1 way_a target2 parking
 ```
 
-В `sent_many_task.py` также необходимо заменить `"..."` на имя сохранённой точки. Тайм-аут ожидания одного задания в примере равен 300 секундам.
+Аргументы задают последовательность точек. Скрипт ждёт статус `0` для каждой
+точки перед отправкой следующей; тайм-аут одного задания — 300 секунд.
 
 ## Логистические процессы
 
 На основе `sent_many_task.py` требуется реализовать два процесса:
 
 1. Маршрут A: `parking → target1 → way_a → target2 → parking`.
-2. Маршрут B: `parking → target2 → way_b → target1 → parking`.
+2. Маршрут B: `parking → target2 → way_e → target1 → parking`.
 
 После прибытия в `target1` и `target2` программа должна выводить в консоль сообщение о загрузке или выгрузке груза. Выбор маршрута можно организовать через консольный ввод. Фактические имена точек в коде должны соответствовать вашему файлу `points.txt`.
 

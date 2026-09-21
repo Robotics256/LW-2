@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import paho.mqtt.client as mqtt
+import argparse
 import json
 import random
 import time
+
+from waypoint_file import waypoints_by_name
 
 
 
@@ -36,7 +39,7 @@ def build_task_payload(point_name):
     payload = {
         "Module": {
             "Name": module_name,
-            "ModuleType": module_type,
+            "Type": module_type,
             "UID": uid,
             "Time": timestamp,
             "Data": {
@@ -52,7 +55,7 @@ def build_task_payload(point_name):
     return task_id, payload
 
 
-def send_move_task(point_name: int):
+def send_move_task(point_name: str):
     client = mqtt.Client(client_id=f"task-sender-{random.randint(0, 10000)}")
     # client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 
@@ -75,6 +78,13 @@ def send_move_task(point_name: int):
 
 
 if __name__ == "__main__":
-    # Пример: отправить роботу команду ехать в точку 3
-    send_move_task("parking")
-    send_move_task("...") 
+    parser = argparse.ArgumentParser(description="Send one Nav2 waypoint through MQTT.")
+    parser.add_argument("point", help="Waypoint name from points.txt")
+    parser.add_argument("--points-file", default="~/points.txt", help="Path to points.txt")
+    arguments = parser.parse_args()
+    try:
+        if arguments.point not in waypoints_by_name(arguments.points_file):
+            parser.error(f"точка '{arguments.point}' не найдена в {arguments.points_file}")
+    except (FileNotFoundError, ValueError) as error:
+        parser.error(str(error))
+    send_move_task(arguments.point)

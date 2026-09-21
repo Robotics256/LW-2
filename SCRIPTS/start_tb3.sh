@@ -2,7 +2,7 @@
 
 set -e
 
-export TURTLEBOT3_MODEL=burger
+export TURTLEBOT3_MODEL=waffle
 source /home/user/ros2/ros2_ws/install/setup.bash
 
 PIDS=()

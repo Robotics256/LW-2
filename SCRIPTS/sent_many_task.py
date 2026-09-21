@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 import paho.mqtt.client as mqtt
+import argparse
 import json
 import random
 import time
 import threading
+
+from waypoint_file import waypoints_by_name
 
 
 
@@ -31,7 +34,7 @@ def build_task_payload(point_name: int):
     payload = {
         "Module": {
             "Name": MODULE_NAME,
-            "ModuleType": MODULE_TYPE,
+            "Type": MODULE_TYPE,
             "UID": uid,
             "Time": timestamp,
             "Data": {
@@ -160,17 +163,22 @@ class TaskClient:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Send waypoints through MQTT one after another.")
+    parser.add_argument("points", nargs="+", help="Waypoint names from points.txt")
+    parser.add_argument("--points-file", default="~/points.txt", help="Path to points.txt")
+    arguments = parser.parse_args()
+    try:
+        known_points = waypoints_by_name(arguments.points_file)
+        missing = [point for point in arguments.points if point not in known_points]
+        if missing:
+            parser.error(f"точки не найдены в {arguments.points_file}: {', '.join(missing)}")
+    except (FileNotFoundError, ValueError) as error:
+        parser.error(str(error))
     client = TaskClient()
     try:
-        # 1) отправляем первое задание
-        task_id = client.send_move_task("parking")
-        # ждём успешного выполнения
-        client.wait_task_success(task_id, timeout=300)
-   
-        # 2) если первое задание выполнено — отправляем второе
-        task_id = client.send_move_task("...")
-        client.wait_task_success(task_id, timeout=300)
-        
+        for point in arguments.points:
+            task_id = client.send_move_task(point)
+            client.wait_task_success(task_id, timeout=300)
     except Exception as e:
         print(f"Ошибка при выполнении задания: {e}")
     finally:

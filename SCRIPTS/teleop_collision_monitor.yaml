@@ -1,0 +1,41 @@
+# Safety filter launched by teleop_keyboard_save.py --collision-monitor.
+# The input is deliberately separate from Nav2's cmd_vel pipeline.
+teleop_collision_monitor:
+  ros__parameters:
+    use_sim_time: true
+    base_frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel_teleop"
+    cmd_vel_out_topic: "cmd_vel"
+    state_topic: "teleop_collision_monitor_state"
+    transform_tolerance: 0.2
+    source_timeout: 0.5
+    stop_pub_timeout: 1.0
+    base_shift_correction: true
+    enable_stamped_cmd_vel: true
+    polygons: ["slowdown", "stop"]
+    # Compact Waffle safety zones, measured from base_footprint (robot centre).
+    # The outer zone slows the robot before it gets close to a wall or rack.
+    slowdown:
+      type: "polygon"
+      points: "[[0.60, 0.45], [0.60, -0.45], [-0.35, -0.45], [-0.35, 0.45]]"
+      action_type: "slowdown"
+      slowdown_ratio: 0.25
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: "teleop_slowdown_zone"
+      enabled: true
+    # Inner stop zone: 0.35 m forward, 0.30 m sideways, 0.25 m backward.
+    stop:
+      type: "polygon"
+      points: "[[0.35, 0.30], [0.35, -0.30], [-0.25, -0.30], [-0.25, 0.30]]"
+      action_type: "stop"
+      min_points: 4
+      visualize: true
+      polygon_pub_topic: "teleop_stop_zone"
+      enabled: true
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "scan"
+      enabled: true

@@ -3,6 +3,8 @@ import rclpy
 from rclpy.node import Node
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from geometry_msgs.msg import PoseStamped
+from waypoint_markers import WaypointMarkerPublisher
+from waypoint_file import load_waypoints
 
 import paho.mqtt.client as mqtt
 import json
@@ -15,7 +17,7 @@ from enum import IntEnum
 import uuid
 
 # ================== CONFIG ==================
-WAYPOINTS_FILE = "points.txt"
+WAYPOINTS_FILE = os.environ.get("TB3_POINTS_FILE", os.path.expanduser("~/points.txt"))
 
 WORKSPACE = "space_v21"     # переименуйте в соответствии с вашим вариантом
 MODULE_NAME = "amr1_v21"    # переименуйте в соответствии с вашим вариантом
@@ -37,36 +39,6 @@ class TaskStatus(IntEnum):
     ERROR = 2        # ошибка выполнения
     BUSY = 3         # новое задание не принято, робот занят выполнением другого задания
 
-def load_waypoints(file_path):
-    waypoints = []   # [{"name": "...", "pose": PoseStamped()}, ...]
-
-    with open(file_path, "r") as f:
-        for line_num, line in enumerate(f, 1):
-            parts = line.strip().split(",")
-            if len(parts) < 5:
-                continue
-
-            try:
-                point_name = parts[0].strip()
-                pose = PoseStamped()
-                pose.header.frame_id = "map"
-                pose.pose.position.x = float(parts[1])
-                pose.pose.position.y = float(parts[2])
-                pose.pose.orientation.z = float(parts[3])
-                pose.pose.orientation.w = float(parts[4])
-
-                waypoints.append({
-                    "name": point_name,
-                    "pose": pose
-                })
-                
-                print(f"Loaded waypoint {line_num}: '{point_name}'")
-            except ValueError:
-                print(f"Skipping invalid line {line_num}")
-
-    return waypoints
-
-
 class MqttNavNode(Node):
 
     def __init__(self):
@@ -75,6 +47,10 @@ class MqttNavNode(Node):
         # Nav2
         self.navigator = BasicNavigator()
         self.waypoints = load_waypoints(WAYPOINTS_FILE)
+        for waypoint in self.waypoints:
+            print(f"Loaded waypoint '{waypoint['name']}'")
+        self.waypoint_marker_publisher = WaypointMarkerPublisher(self)
+        self.waypoint_marker_publisher.publish(self.waypoints)
 
         self.get_logger().info(f"Загружено точек: {len(self.waypoints)}")
         self.navigator.waitUntilNav2Active()
