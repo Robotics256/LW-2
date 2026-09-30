@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import math
 import os
 import select
+import statistics
 import subprocess
 import sys
 import time
@@ -14,29 +16,19 @@ def bootstrap_ros_environment():
         return
 
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ros_setup = '/opt/ros/jazzy/setup.bash'
+    ros_setup = '/opt/ros/humble/setup.bash'
     workspace_setup = os.path.join(project_dir, 'ros2_ws', 'install', 'setup.bash')
     if not os.path.isfile(ros_setup) or not os.path.isfile(workspace_setup):
         print(
-            'ROS 2 Jazzy или workspace не найдены. Сначала выполните '
+            'ROS 2 Humble или workspace не найдены. Сначала выполните '
             './LW-2/SCRIPTS/S1_installRos2.sh.',
             file=sys.stderr,
         )
         raise SystemExit(1)
 
     environment = os.environ.copy()
-    # S2_startSim.sh records the private Gazebo Transport partition. This
-    # lets teleop, normally run in a second terminal, create entities in the
-    # same Gazebo instance.
-    partition_file = os.path.join(
-        '/tmp', f"tb3_warehouse_{environment.get('USER', 'user')}.gz_partition")
-    if not environment.get('GZ_PARTITION') and os.path.isfile(partition_file):
-        with open(partition_file, encoding='utf-8') as file:
-            partition = file.read().strip()
-        if partition:
-            environment['GZ_PARTITION'] = partition
     environment['_TB3_TELEOP_ENV_READY'] = '1'
-    environment.setdefault('TURTLEBOT3_MODEL', 'waffle')
+    environment.setdefault('TURTLEBOT3_MODEL', 'burger')
     command = 'source "$1" && source "$2" && exec python3 "$3" "${@:4}"'
     os.execvpe(
         '/bin/bash',
@@ -51,7 +43,6 @@ def bootstrap_ros_environment():
 bootstrap_ros_environment()
 
 from geometry_msgs.msg import Twist
-from geometry_msgs.msg import TwistStamped
 from ament_index_python.packages import get_package_prefix
 import rclpy
 from rclpy.duration import Duration
@@ -269,6 +260,22 @@ def load_waypoints(file_path):
     return waypoints
 
 
+def map_to_gazebo_offset(waypoints):
+    """Return a robust fixed map/world translation from saved paired points."""
+    paired = [waypoint for waypoint in waypoints
+              if waypoint.get('gazebo_position') is not None]
+    if len(paired) < 3:
+        return None
+    return (
+        statistics.median(
+            waypoint['pose'].pose.position.x - waypoint['gazebo_position'].x
+            for waypoint in paired),
+        statistics.median(
+            waypoint['pose'].pose.position.y - waypoint['gazebo_position'].y
+            for waypoint in paired),
+    )
+
+
 def main(points_file, collision_monitor=False):
     settings = None
     if os.name != 'nt':
@@ -280,7 +287,6 @@ def main(points_file, collision_monitor=False):
         safety_monitor, safety_manager = start_collision_monitor()
 
     rclpy.init()
-    ROS_DISTRO = os.environ.get('ROS_DISTRO')
     qos = QoSProfile(depth=10)
     node = rclpy.create_node(
         'teleop_keyboard',
@@ -294,10 +300,7 @@ def main(points_file, collision_monitor=False):
     marker_publisher.publish(saved_waypoints)
     gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
     command_topic = TELEOP_CMD_TOPIC if collision_monitor else 'cmd_vel'
-    if ROS_DISTRO == 'humble':
-        pub = node.create_publisher(Twist, command_topic, qos)
-    else:
-        pub = node.create_publisher(TwistStamped, command_topic, qos)
+    pub = node.create_publisher(Twist, command_topic, qos)
     status = 0
     target_linear_velocity = 0.0
     target_angular_velocity = 0.0
@@ -348,6 +351,19 @@ def main(points_file, collision_monitor=False):
                     gazebo_pose = gazebo_marker_publisher.robot_position()
                     point_name = input("Input the goal name end pres [Enter]: ").strip()
                     if point_name:
+                        offset = map_to_gazebo_offset(saved_waypoints)
+                        if gazebo_pose is not None and offset is not None:
+                            mismatch = math.hypot(
+                                pose.translation.x - (gazebo_pose.x + offset[0]),
+                                pose.translation.y - (gazebo_pose.y + offset[1]),
+                            )
+                            if mismatch > 0.15:
+                                print(
+                                    f"Point '{point_name}' was not saved: map/Gazebo "
+                                    f"positions differ by {mismatch:.2f} m. "
+                                    'Re-localize in RViz and save it again.'
+                                )
+                                continue
                         # Nav2 receives goals in `map`, so record the same frame.
                         with open(os.path.expanduser(points_file), 'a') as f:
                             line = (
@@ -399,55 +415,16 @@ def main(points_file, collision_monitor=False):
                 target_angular_velocity,
                 (ANG_VEL_STEP_SIZE / 2.0))
 
-            if ROS_DISTRO == 'humble':
-                twist = Twist()
-                twist.linear.x = control_linear_velocity
-                twist.linear.y = 0.0
-                twist.linear.z = 0.0
-
-                twist.angular.x = 0.0
-                twist.angular.y = 0.0
-                twist.angular.z = control_angular_velocity
-
-                pub.publish(twist)
-            else:
-                twist_stamped = TwistStamped()
-                twist_stamped.header.stamp = node.get_clock().now().to_msg()
-                twist_stamped.header.frame_id = ''
-                twist_stamped.twist.linear.x = control_linear_velocity
-                twist_stamped.twist.linear.y = 0.0
-                twist_stamped.twist.linear.z = 0.0
-
-                twist_stamped.twist.angular.x = 0.0
-                twist_stamped.twist.angular.y = 0.0
-                twist_stamped.twist.angular.z = control_angular_velocity
-
-                pub.publish(twist_stamped)
+            twist = Twist()
+            twist.linear.x = control_linear_velocity
+            twist.angular.z = control_angular_velocity
+            pub.publish(twist)
 
     except Exception as e:
         print(e)
 
     finally:
-        if ROS_DISTRO == 'humble':
-            twist = Twist()
-            twist.linear.x = 0.0
-            twist.linear.y = 0.0
-            twist.linear.z = 0.0
-            twist.angular.x = 0.0
-            twist.angular.y = 0.0
-            twist.angular.z = 0.0
-            pub.publish(twist)
-        else:
-            twist_stamped = TwistStamped()
-            twist_stamped.header.stamp = node.get_clock().now().to_msg()
-            twist_stamped.header.frame_id = ''
-            twist_stamped.twist.linear.x = control_linear_velocity
-            twist_stamped.twist.linear.y = 0.0
-            twist_stamped.twist.linear.z = 0.0
-            twist_stamped.twist.angular.x = 0.0
-            twist_stamped.twist.angular.y = 0.0
-            twist_stamped.twist.angular.z = control_angular_velocity
-            pub.publish(twist_stamped)
+        pub.publish(Twist())
 
         if os.name != 'nt':
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)

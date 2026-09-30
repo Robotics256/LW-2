@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-ROS_DISTRO=jazzy
+ROS_DISTRO=humble
 
 if [[ $# -lt 1 ]]; then
   echo "Использование: $0 ПУТЬ_К_КАРТЕ.yaml" >&2
@@ -28,7 +28,14 @@ if [[ ! -f "${PROJECT_DIR}/ros2_ws/install/setup.bash" ]]; then
   exit 1
 fi
 
-export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-waffle}"
+export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
+# RViz/OGRE can freeze on the hardware OpenGL path provided by WSLg. Use
+# Mesa's software renderer by default; set RVIZ_SOFTWARE_RENDERING=0 to test
+# the hardware renderer after updating WSL and the GPU driver.
+if [[ "${RVIZ_SOFTWARE_RENDERING:-1}" == "1" ]]; then
+  export LIBGL_ALWAYS_SOFTWARE=1
+  echo "RViz: используется программный OpenGL (RVIZ_SOFTWARE_RENDERING=0 для аппаратного режима)"
+fi
 set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source "${PROJECT_DIR}/ros2_ws/install/setup.bash"

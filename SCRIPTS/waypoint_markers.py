@@ -5,8 +5,12 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 
 WAYPOINT_MARKERS_TOPIC = '/waypoints'
-# Lift markers above the map plane so RViz renders them over zone labels.
-MARKER_HEIGHT = 0.12
+# The reduced cylinder rests 3 mm above the floor paint.  This keeps it visible
+# over parking/loading labels without making the waypoint appear to float.
+# 25% larger than the previous 16 cm disc.
+MARKER_DIAMETER = 0.20
+MARKER_THICKNESS = 0.04 * 2 / 3 * 1.25
+MARKER_HEIGHT = .003 + MARKER_THICKNESS / 2
 
 
 class WaypointMarkerPublisher:
@@ -46,13 +50,13 @@ class WaypointMarkerPublisher:
             marker.action = Marker.ADD
             marker.pose.position.x = pose.position.x
             marker.pose.position.y = pose.position.y
-            # Keep the marker above the map plane; otherwise it can be hidden
-            # by the map texture and its zone labels in a top-down RViz view.
+            # Keep the marker just over the map plane; otherwise it can be
+            # hidden by the map texture and its zone labels in a top-down view.
             marker.pose.position.z = MARKER_HEIGHT
             marker.pose.orientation.w = 1.0
-            marker.scale.x = 0.24
-            marker.scale.y = 0.24
-            marker.scale.z = 0.04
+            marker.scale.x = MARKER_DIAMETER
+            marker.scale.y = MARKER_DIAMETER
+            marker.scale.z = MARKER_THICKNESS
             marker.color.r = 0.0
             marker.color.g = 1.0
             marker.color.b = 0.0

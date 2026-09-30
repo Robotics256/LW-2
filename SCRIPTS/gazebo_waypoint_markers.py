@@ -1,26 +1,23 @@
-"""Create visible Gazebo Sim entities for named saved waypoints."""
+"""Create visible Gazebo Classic entities for named saved waypoints."""
 
 import os
-import re
-import subprocess
 
-from geometry_msgs.msg import Point
+import rclpy
+from gazebo_msgs.srv import GetEntityState, SpawnEntity
 
 
-# The model is deliberately static and has no collision geometry: it is a
-# visual mark floating over the floor labels, not an obstacle for Nav2 or the
-# physics engine.
-FLOOR_MARK_SDF = '''<sdf version="1.9">
+# Static, visual-only marks do not affect lidar, Nav2, or physics.
+FLOOR_MARK_SDF = '''<sdf version="1.6">
   <model name="waypoint_mark">
     <static>true</static>
     <link name="link">
-      <pose>0 0 0.12 0 0 0</pose>
+      <!-- The disc clears the 2 mm floor paint by 1 mm. -->
+      <pose>0 0 0.0204166666666667 0 0 0</pose>
       <visual name="green_floor_circle">
-        <geometry><cylinder><radius>0.22</radius><length>0.04</length></cylinder></geometry>
+        <geometry><cylinder><radius>0.1833333333333333</radius><length>0.0333333333333333</length></cylinder></geometry>
         <material>
           <ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse>
-          <emissive>0 0.35 0 1</emissive>
-          <specular>0 0.2 0 1</specular>
+          <emissive>0 0.35 0 1</emissive><specular>0 0.2 0 1</specular>
         </material>
       </visual>
     </link>
@@ -29,80 +26,72 @@ FLOOR_MARK_SDF = '''<sdf version="1.9">
 
 
 class GazeboWaypointPublisher:
-    """Spawn one green floor circle per waypoint in the running Gazebo world."""
+    """Spawn waypoint markers and query the robot through gazebo_ros services."""
 
     def __init__(self, node):
         self._node = node
         self._spawned_names = set()
-        self._robot_name = os.environ.get('TURTLEBOT3_MODEL', 'waffle')
+        self._robot_name = os.environ.get('TURTLEBOT3_MODEL', 'burger')
+        self._spawn_client = node.create_client(SpawnEntity, '/spawn_entity')
+        self._state_client = node.create_client(
+            GetEntityState, '/gazebo/get_entity_state')
 
-    def publish(self, waypoints, tf_buffer):
+    def wait_until_ready(self, timeout_sec=30.0):
+        """Wait until Gazebo Classic exposes its entity-spawn service."""
+        return self._spawn_client.wait_for_service(timeout_sec=timeout_sec)
+
+    def publish(self, waypoints, _tf_buffer=None):
         """Create models for waypoints that have not been spawned this session."""
+        if not self._spawn_client.wait_for_service(timeout_sec=1.0):
+            self._node.get_logger().warning(
+                'Gazebo service /spawn_entity is not available; markers were skipped.')
+            return
+
         for waypoint in waypoints:
             name = waypoint['name']
             if name in self._spawned_names:
                 continue
-
-            position = self._gazebo_position(waypoint)
+            position = waypoint.get('gazebo_position')
             if position is None:
+                self._node.get_logger().warning(
+                    f"Gazebo marker '{name}' was skipped: its exact Gazebo "
+                    'position is not stored.')
                 continue
-            command = [
-                'ros2', 'run', 'ros_gz_sim', 'create',
-                '-name', name,
-                '-string', FLOOR_MARK_SDF,
-                '-x', str(position.x), '-y', str(position.y), '-z', '0.0',
-            ]
-            try:
-                # Gazebo's create utility discovers the one active world when
-                # no -world is given. It must stay non-blocking so teleop is
-                # immediately usable after a point is recorded.
-                subprocess.Popen(
-                    command,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env=os.environ.copy(),
-                )
-                self._spawned_names.add(name)
-            except OSError as error:
-                self._node.get_logger().error(
-                    f"Unable to start Gazebo marker '{name}': {error}")
 
-    def _gazebo_position(self, waypoint):
-        """Use only coordinates reported by Gazebo itself."""
-        # A newly saved point includes the robot's actual Gazebo world pose.
-        if 'gazebo_position' in waypoint:
-            return waypoint['gazebo_position']
-        self._node.get_logger().warning(
-            f"Gazebo marker '{waypoint['name']}' was skipped: its exact "
-            'Gazebo position is not stored.')
-        return None
+            request = SpawnEntity.Request()
+            request.name = f'waypoint_{name}'
+            request.xml = FLOOR_MARK_SDF
+            request.reference_frame = 'world'
+            request.initial_pose.position.x = position.x
+            request.initial_pose.position.y = position.y
+            request.initial_pose.orientation.w = 1.0
+            future = self._spawn_client.call_async(request)
+            rclpy.spin_until_future_complete(self._node, future, timeout_sec=5.0)
+            response = future.result() if future.done() else None
+            if response is not None and response.success:
+                self._spawned_names.add(name)
+            elif response is not None and 'already exists' in response.status_message.lower():
+                self._spawned_names.add(name)
+            else:
+                detail = response.status_message if response is not None else 'timeout'
+                self._node.get_logger().warning(
+                    f"Gazebo marker '{name}' was not created: {detail}")
 
     def robot_position(self):
-        """Read the robot's actual position from Gazebo Transport."""
-        environment = os.environ.copy()
-        world = environment.get('TB3_GAZEBO_WORLD', 'warehouse')
-        try:
-            output = subprocess.run(
-                ['gz', 'topic', '-e', '-n', '1',
-                 '-t', f'/world/{world}/pose/info'],
-                env=environment, text=True, capture_output=True,
-                timeout=8, check=True).stdout
-        except (OSError, subprocess.SubprocessError) as error:
-            self._node.get_logger().warning(f'Cannot read Gazebo robot pose: {error}')
+        """Read the robot model position in the Gazebo world frame."""
+        if not self._state_client.wait_for_service(timeout_sec=1.0):
+            self._node.get_logger().warning(
+                'Gazebo service /gazebo/get_entity_state is not available.')
             return None
 
-        # Each entry in Pose_V is a protobuf block. Select the block named for
-        # the robot and read its world X/Y values, not its ROS odometry.
-        entry = re.search(
-            rf'pose \{{\s+name: "{re.escape(self._robot_name)}".*?\n\}}\npose \{{',
-            output + '\npose {', re.DOTALL)
-        if entry is None:
+        request = GetEntityState.Request()
+        request.name = self._robot_name
+        request.reference_frame = 'world'
+        future = self._state_client.call_async(request)
+        rclpy.spin_until_future_complete(self._node, future, timeout_sec=3.0)
+        response = future.result() if future.done() else None
+        if response is None or not response.success:
             self._node.get_logger().warning(
-                f"Gazebo model '{self._robot_name}' was not found in pose data.")
+                f"Gazebo model '{self._robot_name}' was not found.")
             return None
-        values = entry.group(0)
-        x_match = re.search(r'position \{\s+x: ([^\s]+)', values)
-        y_match = re.search(r'\n\s*y: ([^\s]+)', values)
-        if x_match is None or y_match is None:
-            return None
-        return Point(x=float(x_match.group(1)), y=float(y_match.group(1)), z=0.0)
+        return response.state.pose.position

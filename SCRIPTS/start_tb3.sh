@@ -1,39 +1,42 @@
-#!/bin/bash  chmod +x ./start_tb3_2.sh
+#!/usr/bin/env bash
+# Совместный запуск малого склада, Nav2 и MQTT-драйвера.
 
-set -e
+set -euo pipefail
 
-export TURTLEBOT3_MODEL=waffle
-source /home/user/ros2/ros2_ws/install/setup.bash
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
 
+set +u
+source /opt/ros/humble/setup.bash
+source "${PROJECT_DIR}/ros2_ws/install/setup.bash"
+set -u
+
+WAREHOUSE_SHARE="$(ros2 pkg prefix --share turtlebot3_gazebo)"
+MAP_FILE="${1:-${WAREHOUSE_SHARE}/maps/warehouse_small.yaml}"
 PIDS=()
 
 cleanup() {
     echo "Stopping TurtleBot3 stack..."
     for pid in "${PIDS[@]}"; do
-        kill -SIGINT "$pid" 2>/dev/null
+        kill -SIGINT "${pid}" 2>/dev/null || true
     done
-    wait
-    exit 0
+    wait || true
 }
 
-trap cleanup SIGINT SIGTERM
+trap cleanup EXIT SIGINT SIGTERM
 
-ros2 launch turtlebot3_gazebo turtlebot3_dqn_stage4new.launch.py &
+"${SCRIPT_DIR}/S2_startSim.sh" world:=small &
 PIDS+=($!)
 
-sleep 5
+sleep 8
 
-ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=True &
-PIDS+=($!)
-
-sleep 5
-
-ros2 launch turtlebot3_navigation2 navigation2.launch.py use_sim_time:=True map:=./map.yaml &
+"${SCRIPT_DIR}/S3_startNav.sh" "${MAP_FILE}" &
 PIDS+=($!)
 
 sleep 3
 
-python3 /home/user/ros2/ros2_ws/SKRIPTS/mqttDriver.py &
+python3 "${SCRIPT_DIR}/mqtt_driver.py" &
 PIDS+=($!)
 
 wait

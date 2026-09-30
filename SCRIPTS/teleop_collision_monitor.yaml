@@ -12,9 +12,8 @@ teleop_collision_monitor:
     source_timeout: 0.5
     stop_pub_timeout: 1.0
     base_shift_correction: true
-    enable_stamped_cmd_vel: true
     polygons: ["slowdown", "stop"]
-    # Compact Waffle safety zones, measured from base_footprint (robot centre).
+    # Safety zones measured from base_footprint (robot centre).
     # The outer zone slows the robot before it gets close to a wall or rack.
     slowdown:
       type: "polygon"

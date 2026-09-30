@@ -13,58 +13,112 @@
 # limitations under the License.
 
 import os
+import tempfile
+import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
-def generate_launch_description():
-    # Get the urdf file
-    TURTLEBOT3_MODEL = os.environ['TURTLEBOT3_MODEL']
-    model_folder = 'turtlebot3_' + TURTLEBOT3_MODEL
-    urdf_path = os.path.join(
+def _as_bool(value, argument_name):
+    normalized = value.strip().lower()
+    if normalized in ('true', '1', 'yes', 'on'):
+        return True
+    if normalized in ('false', '0', 'no', 'off'):
+        return False
+    raise ValueError(f"{argument_name} must be true or false, got: {value}")
+
+
+def _model_path(model):
+    return os.path.join(
         get_package_share_directory('turtlebot3_gazebo'),
         'models',
-        model_folder,
+        'turtlebot3_' + model,
         'model.sdf'
     )
 
-    # Launch configuration variables specific to simulation
-    x_pose = LaunchConfiguration('x_pose', default='0.0')
-    y_pose = LaunchConfiguration('y_pose', default='0.0')
 
-    # Declare the launch arguments
-    declare_x_position_cmd = DeclareLaunchArgument(
-        'x_pose', default_value='0.0',
-        description='Specify namespace of the robot')
+def _model_with_lidar_visibility(model_path, visible):
+    """Return the original SDF or a temporary copy with ray visuals hidden."""
+    if visible:
+        return model_path, None
 
-    declare_y_position_cmd = DeclareLaunchArgument(
-        'y_pose', default_value='0.0',
-        description='Specify namespace of the robot')
+    tree = ET.parse(model_path)
+    ray_sensors = [
+        sensor for sensor in tree.findall('.//sensor')
+        if sensor.get('type') in ('ray', 'gpu_ray')
+    ]
+    if not ray_sensors:
+        raise RuntimeError(f'No ray lidar sensor found in {model_path}')
+    for sensor in ray_sensors:
+        visualize = sensor.find('visualize')
+        if visualize is None:
+            visualize = ET.SubElement(sensor, 'visualize')
+        visualize.text = 'false'
 
-    start_gazebo_ros_spawner_cmd = Node(
+    descriptor, temporary_path = tempfile.mkstemp(
+        prefix=f'turtlebot3_{os.getpid()}_', suffix='_lidar_hidden.sdf')
+    with os.fdopen(descriptor, 'wb') as temporary_file:
+        # spawn_entity.py reads -file as a Unicode string. lxml rejects a
+        # Unicode string that still contains an XML encoding declaration.
+        tree.write(temporary_file, encoding='utf-8', xml_declaration=False)
+    return temporary_path, temporary_path
+
+
+def _remove_temporary_model(_context, temporary_path):
+    try:
+        os.unlink(temporary_path)
+    except FileNotFoundError:
+        pass
+    return []
+
+
+def launch_setup(context):
+    model = os.environ['TURTLEBOT3_MODEL']
+    lidar_visible = _as_bool(
+        LaunchConfiguration('lidar_visual').perform(context), 'lidar_visual')
+    spawn_model_path, temporary_path = _model_with_lidar_visibility(
+        _model_path(model), lidar_visible)
+
+    spawner = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
         arguments=[
-            '-entity', TURTLEBOT3_MODEL,
-            '-file', urdf_path,
-            '-x', x_pose,
-            '-y', y_pose,
+            '-entity', model,
+            '-file', spawn_model_path,
+            '-x', LaunchConfiguration('x_pose'),
+            '-y', LaunchConfiguration('y_pose'),
             '-z', '0.01'
         ],
         output='screen',
     )
 
-    ld = LaunchDescription()
+    actions = [spawner]
+    if temporary_path is not None:
+        actions.append(RegisterEventHandler(OnProcessExit(
+            target_action=spawner,
+            on_exit=[OpaqueFunction(
+                function=_remove_temporary_model,
+                args=[temporary_path],
+            )],
+        )))
+    return actions
 
-    # Declare the launch options
-    ld.add_action(declare_x_position_cmd)
-    ld.add_action(declare_y_position_cmd)
 
-    # Add any conditioned actions
-    ld.add_action(start_gazebo_ros_spawner_cmd)
-
-    return ld
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'x_pose', default_value='0.0',
+            description='Initial robot X coordinate'),
+        DeclareLaunchArgument(
+            'y_pose', default_value='0.0',
+            description='Initial robot Y coordinate'),
+        DeclareLaunchArgument(
+            'lidar_visual', default_value='true',
+            description='Show Gazebo lidar rays without changing the /scan sensor'),
+        OpaqueFunction(function=launch_setup),
+    ])

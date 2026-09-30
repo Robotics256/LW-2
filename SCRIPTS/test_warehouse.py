@@ -99,25 +99,40 @@ class WarehouseTest(unittest.TestCase):
                 self.assertEqual(pixels[row*width+col], expected, (row, col))
 
     def test_lightweight_geometry(self):
-        self.assertEqual(len(self.boxes), 27)
-        self.assertFalse(self.world.findall('.//uri'), 'Warehouse must load without external assets')
-        racks = [m for m in self.world.findall('world/model') if m.get('name').startswith('rack_')]
-        self.assertEqual(len(racks), 6)
+        self.assertEqual(len(self.boxes), 69)
+        self.assertFalse(self.world.findall('.//uri'),
+                         'Warehouse must load without external assets')
+        racks = [model for model in self.world.findall('world/model')
+                 if model.get('name').startswith('rack_')]
+        self.assertEqual(len(racks), 48)
         for rack in racks:
             self.assertEqual(len(rack.findall('link/collision')), 1)
-            bays = [v for v in rack.findall('link/visual') if v.get('name').startswith('bay_')]
-            doubled = rack.get('name') in ('rack_A2', 'rack_B2')
-            self.assertEqual(len(bays), 16 if doubled else 8)
+            bays = [visual for visual in rack.findall('link/visual')
+                    if visual.get('name').startswith('bay_')]
+            doubled = rack.get('name')[5:7] in ('A2', 'B2')
+            self.assertEqual(len(bays), 2 if doubled else 1)
             if doubled:
-                self.assertEqual({float(v.findtext('pose').split()[1]) for v in bays}, {-.25, .25})
-                self.assertEqual(len({v.findtext('material/diffuse') for v in bays}), 2)
+                self.assertEqual({float(visual.findtext('pose').split()[1])
+                                  for visual in bays}, {-.25, .25})
+                self.assertEqual(len({visual.findtext('material/diffuse')
+                                      for visual in bays}), 2)
             for bay in bays:
                 size = list(map(float, bay.findtext('geometry/box/size').split()))
-                self.assertEqual(size[:2], [.49, .49])
+                self.assertEqual(size[:2], [.5 if doubled else .44, .49])
+        rows = {}
         for rack in racks:
-            x, _, _, _, _, _ = map(float, rack.findtext('pose').split())
-            sx, _, _ = map(float, rack.findtext('link/collision/geometry/box/size').split())
-            self.assertAlmostEqual(abs(x) - sx/2, .1, places=6)
+            prefix = rack.get('name').rsplit('_', 1)[0]
+            rows.setdefault(prefix, []).append(float(rack.findtext('pose').split()[0]))
+        for prefix, positions in rows.items():
+            positions.sort()
+            self.assertEqual(len(positions), 8)
+            middle_row = any(prefix.endswith(row) for row in ('A2', 'B2'))
+            if middle_row:
+                self.assertTrue(all(abs(next_x - x - .5) < 1e-8
+                                    for x, next_x in zip(positions, positions[1:])))
+            else:
+                self.assertTrue(all(next_x - x - .44 > .06
+                                    for x, next_x in zip(positions, positions[1:])))
         self.assertFalse({'turn_a', 'turn_b'} & self.points.keys())
         self.assertEqual([self.points[f'park_{index}'][0] for index in range(1, 8)],
                          [-5.3, -4.3, -3.3, -2.3, -1.3, -.3, .7])
@@ -192,14 +207,23 @@ class SmallWarehouseTest(unittest.TestCase):
 
     def test_small_layout_contains_only_a_storage_and_t1_t2_t4(self):
         names = {model.get('name') for model in self.world.findall('world/model')}
-        self.assertEqual({name for name in names if name.startswith('rack_')},
-                         {'rack_A1', 'rack_A2', 'rack_A3'})
-        self.assertFalse(any(name.startswith('rack_B') for name in names))
+        racks = {name for name in names if name.startswith('rack_')}
+        self.assertEqual(len(racks), 28)
+        self.assertEqual({name.rsplit('_', 1)[0] for name in racks},
+                         {'rack_A1', 'rack_A2', 'rack_B1', 'rack_B2'})
         self.assertNotIn('machine', names)
-        self.assertNotIn('target3', self.points)
-        self.assertEqual(len([key for key in self.points if key.startswith('park_')]), 4)
-        self.assertAlmostEqual(self.points['target4'][0], .55)
-        self.assertEqual(len(self.boxes), 19)
+        self.assertNotIn('target4', self.points)
+        self.assertEqual(len([key for key in self.points if key.startswith('park_')]), 3)
+        self.assertAlmostEqual(self.points['target3'][0], .55)
+        self.assertIn("wall_t1_t2", names)
+        self.assertEqual(len(self.boxes), 44)
+        rack_rows = {}
+        for model in self.world.findall('world/model'):
+            name = model.get('name')
+            if name.startswith('rack_'):
+                rack_rows.setdefault(name.rsplit('_', 1)[0],
+                                     float(model.findtext('pose').split()[1]))
+        self.assertAlmostEqual(rack_rows['rack_B1'] - rack_rows['rack_A2'], .5)
 
 
 if __name__ == '__main__':

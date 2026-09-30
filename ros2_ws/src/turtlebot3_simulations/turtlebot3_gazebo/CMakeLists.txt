@@ -75,7 +75,16 @@ install(TARGETS ${EXEC_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY launch models rviz urdf worlds
+install(TARGETS
+  traffic_light_plugin
+  traffic_bar_plugin
+  obstacle1
+  obstacle2
+  obstacles
+  DESTINATION lib
+)
+
+install(DIRECTORY launch maps models params rviz urdf worlds
   DESTINATION share/${PROJECT_NAME}/
 )
 

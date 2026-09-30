@@ -5,6 +5,7 @@ from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from geometry_msgs.msg import PoseStamped
 from waypoint_markers import WaypointMarkerPublisher
 from waypoint_file import load_waypoints
+from gazebo_trail import GazeboTrail
 
 import paho.mqtt.client as mqtt
 import json
@@ -15,9 +16,14 @@ import threading
 import time
 from enum import IntEnum
 import uuid
+import argparse
 
 # ================== CONFIG ==================
 WAYPOINTS_FILE = os.environ.get("TB3_POINTS_FILE", os.path.expanduser("~/points.txt"))
+POSITION_ONLY_BT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "position_only_navigation.xml")
+ORIENTATION_AWARE_BT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "orientation_aware_navigation.xml"
+)
 
 WORKSPACE = "space_v21"     # переименуйте в соответствии с вашим вариантом
 MODULE_NAME = "amr1_v21"    # переименуйте в соответствии с вашим вариантом
@@ -41,8 +47,13 @@ class TaskStatus(IntEnum):
 
 class MqttNavNode(Node):
 
-    def __init__(self):
+    def __init__(self, ignore_orientation=False, trail_color_number=False):
         super().__init__("mqtt_nav_node")
+        self.ignore_orientation = ignore_orientation
+        self.trail = (
+            GazeboTrail(self, color_number=trail_color_number)
+            if trail_color_number is not False else None
+        )
 
         # Nav2
         self.navigator = BasicNavigator()
@@ -53,7 +64,17 @@ class MqttNavNode(Node):
         self.waypoint_marker_publisher.publish(self.waypoints)
 
         self.get_logger().info(f"Загружено точек: {len(self.waypoints)}")
-        self.navigator.waitUntilNav2Active()
+        mode = "только координаты x, y" if ignore_orientation else "координаты x, y и ориентация"
+        self.get_logger().info(f"Режим цели: {mode}")
+        if self.trail is not None:
+            self.get_logger().info("Пунктирный след в Gazebo включён")
+        # The operator sets the real initial pose in RViz. BasicNavigator's
+        # public helper republishes its default (0, 0) pose on Humble, so wait
+        # for lifecycle activation without changing the operator's estimate.
+        self.navigator._waitForNodeToActivate('amcl')
+        self.navigator._waitForNodeToActivate('bt_navigator')
+        while not self.navigator.initial_pose_received:
+            rclpy.spin_once(self.navigator, timeout_sec=0.2)
 
         # Очередь заданий
         self.task_queue = queue.Queue()
@@ -226,13 +247,27 @@ class MqttNavNode(Node):
             self.current_goal = target
             self.get_logger().info(f"Движение к точке '{point_name}': x={target.pose.position.x}")
 
-            self.navigator.goToPose(target)
+            if self.trail is not None:
+                self.trail.start(point_name)
+            self.navigator.goToPose(
+                target,
+                behavior_tree=(
+                    POSITION_ONLY_BT
+                    if self.ignore_orientation
+                    else ORIENTATION_AWARE_BT
+                ),
+            )
             return
 
         # Если цель активна — проверяем статус
         if self.current_goal is not None:
+            if self.trail is not None:
+                self.trail.sample()
             if self.navigator.isTaskComplete():
                 result = self.navigator.getResult()
+
+                if self.trail is not None:
+                    self.trail.stop()
 
                 end_time = time.time()
                 if self.current_task_start is None:
@@ -278,8 +313,25 @@ class MqttNavNode(Node):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="MQTT to Nav2 waypoint driver.")
+    parser.add_argument(
+        "--ignore-orientation", action="store_true",
+        help="Считать точку достигнутой по координатам x, y без требования конечной ориентации",
+    )
+    parser.add_argument(
+        "--trail", nargs="?", type=int, const=None, default=False,
+        help=("Оставлять в Gazebo пунктирный след; без числа — синий, "
+              "с числом 1–21 — цвет из SCRIPTS/trail_colors.json"),
+    )
+    arguments = parser.parse_args()
+    if arguments.trail is not False and arguments.trail is not None:
+        if not 1 <= arguments.trail <= 21:
+            parser.error("--trail принимает номер цвета от 1 до 21")
     rclpy.init()
-    node = MqttNavNode()
+    node = MqttNavNode(
+        ignore_orientation=arguments.ignore_orientation,
+        trail_color_number=arguments.trail,
+    )
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()

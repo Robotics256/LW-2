@@ -2,7 +2,7 @@
 
 ## Основы цифрового моделирования производственных логистических процессов
 
-Проект демонстрирует управление автономным мобильным роботом TurtleBot3 Waffle в симуляторе Gazebo Harmonic с использованием ROS 2 Jazzy. В ходе работы строится карта помещения, сохраняются целевые точки, запускается автономная навигация Nav2, а задания роботу передаются через MQTT.
+Проект демонстрирует управление автономным мобильным роботом TurtleBot3 Burger в Gazebo Classic с использованием ROS 2 Humble. В ходе работы строится карта помещения, сохраняются целевые точки, запускается автономная навигация Nav2, а задания роботу передаются через MQTT.
 
 ## Цель работы
 
@@ -18,10 +18,10 @@
 
 ## Требования
 
-- Ubuntu 24.04 LTS (Noble), предпочтительно Desktop; для WSL2 нужен графический сервер с OpenGL (например, WSLg);
-- ROS 2 Jazzy;
+- Ubuntu 22.04 LTS (Jammy), предпочтительно Desktop; для WSL2 нужен графический сервер с OpenGL (например, WSLg);
+- ROS 2 Humble;
 - Python 3 с библиотекой `paho-mqtt`;
-- Gazebo Harmonic, RViz, Cartographer и Navigation2;
+- Gazebo Classic 11, RViz, Cartographer и Navigation2;
 - доступ к интернету для работы с публичным MQTT-брокером;
 - MQTT-клиент, например MQTTX, — при ручной отправке заданий.
 
@@ -47,7 +47,7 @@ LW-2/
 
 ## Установка
 
-Скрипт проверяет Ubuntu 24.04, устанавливает ROS 2 Jazzy, Gazebo Harmonic, Python-зависимости и TurtleBot3 ветки `jazzy`, затем собирает workspace. Для его работы необходимы права `sudo` и подключение к интернету; запуск возможен из любой директории.
+Скрипт проверяет Ubuntu 22.04, устанавливает ROS 2 Humble, Gazebo Classic, Python-зависимости, Nav2 и Cartographer, затем собирает workspace. Для его работы необходимы права `sudo` и подключение к интернету; запуск возможен из любой директории.
 
 ```bash
 chmod +x ./LW-2/SCRIPTS/S1_installRos2.sh
@@ -57,7 +57,7 @@ chmod +x ./LW-2/SCRIPTS/S1_installRos2.sh
 При повторной ручной сборке workspace используйте:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 cd ~/LW-2/ros2_ws
 colcon build --symlink-install --executor sequential
 ```
@@ -65,7 +65,7 @@ colcon build --symlink-install --executor sequential
 ## Полная последовательность лабораторной
 
 Ниже приведён рабочий порядок из методички, адаптированный для Ubuntu 24.04,
-ROS 2 Jazzy и TurtleBot3 Waffle. Окна Gazebo и RViz не закрывайте до конца
+ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывайте до конца
 соответствующего этапа; каждый блок запускайте в отдельном терминале.
 
 1. Запустите склад:
@@ -74,32 +74,33 @@ ROS 2 Jazzy и TurtleBot3 Waffle. Окна Gazebo и RViz не закрывай�
    ~/LW-2/SCRIPTS/S2_startSim.sh
    ```
 
-2. Запустите ручное управление с файлом, в который будут записываться точки:
+2. Во втором терминале обязательно запустите Cartographer:
+
+   ```bash
+   source /opt/ros/humble/setup.bash
+   source ~/LW-2/ros2_ws/install/setup.bash
+   ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
+   ```
+
+3. В третьем терминале запустите ручное управление с файлом, в который будут
+   записываться точки:
 
    ```bash
    python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
    ```
 
-3. В третьем терминале обязательно запустите Cartographer:
+4. Объедьте все доступные проезды. **Во время этого же объезда одновременно
+   расставляйте точки:** останавливайтесь в нужных местах, нажимайте `G` в
+   терминале `teleop_keyboard_save.py` и вводите имена (`parking`, `target1`,
+   `way_a` и т. п.). Повторно проезжать весь склад после сохранения карты не
+   требуется.
 
-   ```bash
-   source /opt/ros/jazzy/setup.bash
-   source ~/LW-2/ros2_ws/install/setup.bash
-   ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
-   ```
-
-   После запуска Cartographer объедьте все доступные проезды. **Во время этого
-   же объезда одновременно расставляйте точки:** останавливайтесь в нужных
-   местах, нажимайте `G` в терминале `teleop_keyboard_save.py` и вводите имена
-   (`parking`, `target1`, `way_a` и т. п.). Повторно проезжать весь склад после
-   сохранения карты не требуется.
-
-4. Когда карта построена и точки записаны, сохраните карту в отдельном
+5. Когда карта построена и точки записаны, сохраните карту в отдельном
    терминале. Будут созданы `~/warehouse_map.yaml` и
    `~/warehouse_map.pgm`:
 
    ```bash
-   source /opt/ros/jazzy/setup.bash
+   source /opt/ros/humble/setup.bash
    source ~/LW-2/ros2_ws/install/setup.bash
    ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
      --ros-args -p use_sim_time:=true
@@ -109,11 +110,14 @@ ROS 2 Jazzy и TurtleBot3 Waffle. Окна Gazebo и RViz не закрывай�
    `teleop_keyboard_save.py` и симуляцию. Закройте оставшиеся окна RViz и
    Gazebo.
 
-5. Запустите новую чистую симуляцию, явно указав сохранённый файл точек, а
+6. Запустите новую чистую симуляцию, явно указав сохранённый файл точек, а
    затем в другом терминале запустите Nav2 с сохранённой картой:
 
+   После загрузки карты Nav2 ещё не знает, где находится робот в её системе
+   координат. Поэтому в RViz необходимо указать его начальную позу и направление.
+
    ```bash
-   ~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
+   ~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt lidar_visual:=false
    ```
 
    ```bash
@@ -121,28 +125,30 @@ ROS 2 Jazzy и TurtleBot3 Waffle. Окна Gazebo и RViz не закрывай�
    ```
 
    После появления карты в RViz обязательно выберите **2D Pose Estimate** и
-   укажите реальное начальное положение и направление робота. На собственной
-   Cartographer-карте выбирайте точку, где робот находился в начале построения
-   карты; при штатном старте с P2 это обычно около `x=0`, `y=0`, стрелка вправо.
-   Координаты Gazebo `-4.3, -4.5` не следует автоматически переносить в систему
-   координат собственной карты.
+   укажите фактическое начальное положение и направление робота на карте.
 
-6. Проверьте автономное движение напрямую через Nav2, без MQTT. Путь к файлу,
+7. Проверьте автономное движение напрямую через Nav2, без MQTT. Путь к файлу,
    имя точки и предельная скорость задаются в команде:
 
    ```bash
+   source /opt/ros/humble/setup.bash
+   source ~/LW-2/ros2_ws/install/setup.bash
    python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
-     ~/points.txt target1 --speed 0.15
+     ~/points.txt target1 --speed 0.15 --trail 7
    ```
+
+   В каждом новом терминале сначала подключите оба файла `setup.bash`. Без
+   этого Python не найдёт библиотеку ROS 2 `rclpy` и выведет
+   `ModuleNotFoundError: No module named 'rclpy'`.
 
    Скорость должна быть больше `0` и не превышать `0.30` м/с. Несколько имён выполняются
    последовательно, например `parking way_a target1`.
 
-7. После проверки без MQTT запустите MQTT-драйвер и отправляйте задания из
+8. После проверки без MQTT запустите MQTT-драйвер и отправляйте задания из
    MQTTX либо MQTT-скриптами:
 
    ```bash
-   source /opt/ros/jazzy/setup.bash
+   source /opt/ros/humble/setup.bash
    source ~/LW-2/ros2_ws/install/setup.bash
    python3 ~/LW-2/SCRIPTS/mqtt_driver.py
    ```
@@ -153,20 +159,14 @@ ROS 2 Jazzy и TurtleBot3 Waffle. Окна Gazebo и RViz не закрывай�
 
 ## 1. Запуск симуляции
 
-Быстрый запуск:
+Запуск:
 
 ```bash
 chmod +x ./LW-2/SCRIPTS/S2_startSim.sh
-TURTLEBOT3_MODEL=waffle ./LW-2/SCRIPTS/S2_startSim.sh
+./LW-2/SCRIPTS/S2_startSim.sh
 ```
 
-Либо запуск вручную:
-
-```bash
-TURTLEBOT3_MODEL=waffle ./LW-2/SCRIPTS/S2_startSim.sh
-```
-
-Каждый следующий компонент запускайте в отдельной вкладке терминала, не закрывая Gazebo.
+Каждый следующий компонент запускайте в отдельной вкладке терминала, не закрывая Gazebo и не останавливая запущенный в консоли скрипт.
 
 ### Учебные миры
 
@@ -185,15 +185,14 @@ TURTLEBOT3_MODEL=waffle ./LW-2/SCRIPTS/S2_startSim.sh
 ~/LW-2/SCRIPTS/S2_startSim.sh world:=stage4
 ```
 
-`large` — значение по умолчанию. Пунктирный след доступен в обоих складах;
-для Stage4 аргумент `trail` не добавляет разметку, потому что это исходный мир
-TurtleBot3.
+`small` — значение по умолчанию. Для большого варианта явно передайте
+`world:=large`.
 В запуске симулятора также допустимо `map:=small` как синоним `world:=small`.
 В команде Nav2 `map:=...` по-прежнему означает путь к файлу `.yaml`.
 
 ### Большой учебный склад
 
-По умолчанию запускается компактный склад **12 × 10 м**: общая стоянка на семь
+Большой склад **12 × 10 м** содержит общую стоянку на семь
 роботов, две зоны по три стеллажа, приёмка, конвейер, станок и отгрузка.
 Стеллажи состоят из квадратных секций 0,5 × 0,5 м. Проходы между ними — 0,8 м;
 боковые основные проезды — 2,1 м. Все стеллажи доходят до центральной стены;
@@ -204,39 +203,35 @@ A2 и B2 двойные: по два ряда коробок.
 
 ![План склада](docs/warehouse/warehouse_plan.svg)
 
-[Размеры, точки, маршруты, эталонная карта и расширение для группы](docs/warehouse/README.md).
+[Размеры, точки, маршруты, эталонная карта и расширение для группы](docs/warehouse/README_warehouse.md).
 План и инструкция малого варианта: [малый склад](docs/warehouse/SMALL.md).
 После обновления проекта пересоберите пакет:
 
 ```bash
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 cd ~/LW-2/ros2_ws
 colcon build --symlink-install --packages-select turtlebot3_gazebo
 ```
 
-Выбор Waffle и запуск без графического окна:
+Обычный и headless-запуск Burger (модель по умолчанию):
 
 ```bash
 ~/LW-2/SCRIPTS/S2_startSim.sh
-TURTLEBOT3_MODEL=waffle ~/LW-2/SCRIPTS/S2_startSim.sh gui:=false
+~/LW-2/SCRIPTS/S2_startSim.sh gui:=false
 ```
 
-Waffle — модель по умолчанию во всех командах ниже. Не смешивайте модели между
+Чтобы скрыть в Gazebo синие лучи лидара, не отключая сам датчик и топик
+`/scan`, передайте параметр:
+
+```bash
+~/LW-2/SCRIPTS/S2_startSim.sh lidar_visual:=false
+```
+
+Burger — модель по умолчанию во всех скриптах. Не смешивайте модели между
 терминалами одной симуляции.
 Штатный запуск создаёт **одного** робота на месте P2; семь мест предусмотрены
 для дальнейшей групповой лабораторной. Построение собственной карты и запись
 точек выполняются по разделам ниже.
-
-### Режим пунктирного следа
-
-Склад по умолчанию оставляет за движущимся Waffle синий пунктир на полу.
-Точки появляются примерно через 14 см, являются только визуальными и не имеют
-коллизий: лидар, Cartographer и Nav2 их не видят. След очищается при следующем
-запуске симуляции. Чтобы отключить его, передайте параметр запуска:
-
-```bash
-~/LW-2/SCRIPTS/S2_startSim.sh trail:=false
-```
 
 ## 2. Ручное управление
 
@@ -253,18 +248,18 @@ python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py --collision-monitor ~/points.txt
 
 Скрипт запускает отдельный `nav2_collision_monitor` и направляет команды по
 цепочке `/cmd_vel_teleop → Collision Monitor → /cmd_vel`. В зоне до 0,6 м
-перед Waffle скорость уменьшается до 25 %, а в ближней зоне до 0,35 м спереди
+перед роботом скорость уменьшается до 25 %, а в ближней зоне до 0,35 м спереди
 робот останавливается. Настройки зон находятся в
 `SCRIPTS/teleop_collision_monitor.yaml`. Этот режим защищает именно команды
 ручного управления и может работать одновременно с Nav2, у которого свой
 контур команд.
 
-Скрипт сам подключает ROS 2 Jazzy и workspace. По умолчанию он управляет Waffle.
+Скрипт сам подключает ROS 2 Humble и workspace. По умолчанию он управляет Burger.
 Перед вызовом `G` должны работать Cartographer либо Nav2: точки сохраняются в
 системе координат `map`, которую Nav2 использует для целей.
 
 ```bash
-TURTLEBOT3_MODEL=waffle python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+TURTLEBOT3_MODEL=burger python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
 ```
 
 Клавиши управления:
@@ -287,15 +282,15 @@ python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
 Формат строки в файле:
 `имя, map_x, map_y, orientation_z, orientation_w, gazebo_x, gazebo_y`.
 Последние две координаты нужны только для отображения меток в Gazebo; Nav2
-использует координаты `map_x`, `map_y` и ориентацию.
+по умолчанию использует координаты `map_x`, `map_y` и ориентацию.
 
 ## 3. Построение и сохранение карты
 
 Запустите Cartographer:
 
 ```bash
-export TURTLEBOT3_MODEL=waffle
-source /opt/ros/jazzy/setup.bash
+export TURTLEBOT3_MODEL=burger
+source /opt/ros/humble/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
 ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
 ```
@@ -343,14 +338,8 @@ ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
 
 ## 5. Запуск автономной навигации
 
-Для прямой навигации нужны Gazebo и Navigation2. MQTT-драйвер добавляется
-только после проверки обычной отправки цели.
-
-### Терминал 1 — Gazebo
-
-```bash
-~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
-```
+После запуска Gazebo по разделу 4 запустите Navigation2 в другом терминале.
+MQTT-драйвер добавляется только после проверки обычной отправки цели.
 
 ### Терминал 2 — Navigation2
 
@@ -360,10 +349,7 @@ ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
 
 После появления карты в RViz обязательно задайте начальную позицию робота
 инструментом **2D Pose Estimate**. Положение должно соответствовать фактической
-позиции робота на карте, а стрелка — его направлению. Для карты, построенной от
-штатной стартовой позиции P2, это обычно точка около `x=0`, `y=0` с направлением
-вправо. Для готовой карты с мировой системой координат P2 может иметь
-`x=-4.3`, `y=-4.5`; ориентируйтесь на конкретную карту, а не на Gazebo.
+позиции робота на карте, а стрелка — его направлению.
 
 ### Терминал 3 — цель напрямую, без MQTT
 
@@ -371,18 +357,64 @@ ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
 `active`, отправьте точку из `points.txt`:
 
 ```bash
-python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
-  ~/points.txt target1 --speed 0.15
+source /opt/ros/humble/setup.bash
+source ~/LW-2/ros2_ws/install/setup.bash
+python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orientation
 ```
 
-`--speed` задаёт максимальную линейную скорость в м/с. Для складской
-конфигурации используйте значение `0 < speed <= 0.30`; по умолчанию применяется
-`0.20` м/с. Для последовательного маршрута перечислите несколько точек:
+Позиционные параметры команды:
+
+| Параметр | Значение в примере | Описание |
+|---|---|---|
+| `points_file` | `~/points.txt` | путь к файлу сохранённых точек |
+| `points` | `target1` | одно или несколько имён точек для последовательного маршрута |
+
+Дополнительные параметры:
+
+| Параметр | Значение | Описание |
+|---|---|---|
+| `--ignore-orientation` | флаг | считать цель достигнутой по координатам `x, y`, без требования конечной ориентации |
+| `--speed ЧИСЛО` | `0.20` м/с по умолчанию | максимальная линейная скорость; допустимо `0 < speed <= 0.30` м/с |
+| `--trail [1–21]` | необязательный номер цвета | показать в Gazebo пунктирный след движения; без номера он синий, с номером использует цвет из `SCRIPTS/trail_colors.json` |
+
+Например, для скорости `0.15` м/с:
 
 ```bash
 python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
-  ~/points.txt parking way_a target1 --speed 0.12
+  ~/points.txt target1 --ignore-orientation --speed 0.15
 ```
+
+Для последовательного маршрута перечислите несколько имён точек:
+
+```bash
+python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
+  ~/points.txt parking way_a target1 --ignore-orientation --speed 0.15
+```
+
+Перед первым использованием этого режима перезапустите Nav2, чтобы он загрузил
+дополнительный проверяющий модуль цели.
+
+Флаг `--trail` можно объединять с другими параметрами:
+
+```bash
+python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orientation --trail
+```
+
+Чтобы выбрать цвет следа, передайте номер от 1 до 21, например `--trail 7`.
+Все 21 цвета хранятся в `SCRIPTS/trail_colors.json` в формате RGB от `0` до
+`1`; их можно свободно изменить.
+
+След записывается от положения робота в момент отправки цели до завершения
+движения и остаётся видимым до перезапуска симуляции. Метки следа не имеют
+коллизий и не влияют на лидар или Nav2.
+
+В обоих режимах автоматическое аварийное движение задним ходом отключено: если
+Nav2 не сможет построить или выполнить маршрут, робот остановится и программа
+сообщит об ошибке навигации.
+
+Для складских проходов радиус распространения стоимости препятствий в локальной
+и глобальной costmap уменьшен до `0.35 м`. Физический радиус Burger остаётся
+`0.15 м`; после изменения параметров перезапустите Nav2.
 
 Скрипт не изменяет начальную позу AMCL и ждёт, пока она будет задана в RViz.
 
@@ -400,9 +432,24 @@ python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
 
 ```bash
 cd ~
-source /opt/ros/jazzy/setup.bash
+source /opt/ros/humble/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
 python3 ./LW-2/SCRIPTS/mqtt_driver.py
+```
+
+Для всех заданий, получаемых этим MQTT-драйвером, можно отключить требование
+конечной ориентации тем же флагом:
+
+```bash
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --ignore-orientation
+```
+
+Пунктирный след для всех заданий MQTT включается отдельно или вместе с режимом
+без ориентации:
+
+```bash
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --ignore-orientation --trail
 ```
 
 Используемые MQTT-параметры:
@@ -416,6 +463,11 @@ python3 ./LW-2/SCRIPTS/mqtt_driver.py
 Статусы задания: `0` — выполнено, `1` — выполняется, `2` — ошибка, `3` — робот занят и задание отклонено.
 
 ## 6. Отправка задания через MQTT
+
+Отправитель MQTT не требует ROS 2: задание можно публиковать как из WSL, так и
+с хоста. MQTT-драйвер, принимающий задание и передающий его Nav2, остаётся
+запущенным в WSL. На хосте используйте MQTTX или Python-скрипты из копии
+проекта с доступом к тому же файлу `points.txt`.
 
 ### Через MQTTX
 

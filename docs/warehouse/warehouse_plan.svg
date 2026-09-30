@@ -25,84 +25,182 @@
 <rect x="444.0" y="146.0" width="140.0" height="56.0" fill="#dc8050"/>
 <rect x="752.0" y="146.0" width="126.0" height="56.0" fill="#bc647b"/>
 <rect x="822.0" y="755.0" width="84.0" height="70.0" fill="#b28b47"/>
-<rect x="227.0" y="566.0" width="280.0" height="35.0" fill="#488cc0"/>
-<rect x="227.00000000000003" y="566.0" width="280.0" height="35" fill="#488cc0"/>
-<path d="M 262.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 297.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 332.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 367.00000000000006 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 402.00000000000006 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 437.00000000000006 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 472.00000000000006 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="367.0" y="588.5" text-anchor="middle" fill="white" font-size="14">A1</text>
-<rect x="227.0" y="440.0" width="280.0" height="70.0" fill="#488cc0"/>
-<rect x="227.00000000000003" y="440.0" width="280.0" height="35" fill="#488cc0"/>
-<path d="M 262.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 297.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 332.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 367.00000000000006 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 402.00000000000006 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 437.00000000000006 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 472.00000000000006 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="367.0" y="462.5" text-anchor="middle" fill="white" font-size="14">A2 · N</text>
-<rect x="227.00000000000003" y="475.0" width="280.0" height="35" fill="#b97950"/>
-<path d="M 262.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 297.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 332.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 367.00000000000006 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 402.00000000000006 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 437.00000000000006 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 472.00000000000006 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="367.0" y="497.5" text-anchor="middle" fill="white" font-size="14">A2 · S</text>
-<rect x="227.0" y="349.0" width="280.0" height="35.0" fill="#488cc0"/>
-<rect x="227.00000000000003" y="349.0" width="280.0" height="35" fill="#488cc0"/>
-<path d="M 262.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 297.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 332.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 367.00000000000006 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 402.00000000000006 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 437.00000000000006 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 472.00000000000006 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="367.0" y="371.5" text-anchor="middle" fill="white" font-size="14">A3</text>
-<rect x="521.0" y="566.0" width="280.0" height="35.0" fill="#419d93"/>
-<rect x="521.0" y="566.0" width="280.0" height="35" fill="#419d93"/>
-<path d="M 556.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 591.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 626.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 661.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 696.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 731.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 766.0 566.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="661.0" y="588.5" text-anchor="middle" fill="white" font-size="14">B1</text>
-<rect x="521.0" y="440.0" width="280.0" height="70.0" fill="#419d93"/>
-<rect x="521.0" y="440.0" width="280.0" height="35" fill="#419d93"/>
-<path d="M 556.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 591.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 626.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 661.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 696.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 731.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 766.0 440.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="661.0" y="462.5" text-anchor="middle" fill="white" font-size="14">B2 · N</text>
-<rect x="521.0" y="475.0" width="280.0" height="35" fill="#b69b43"/>
-<path d="M 556.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 591.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 626.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 661.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 696.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 731.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 766.0 475.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="661.0" y="497.5" text-anchor="middle" fill="white" font-size="14">B2 · S</text>
-<rect x="521.0" y="349.0" width="280.0" height="35.0" fill="#419d93"/>
-<rect x="521.0" y="349.0" width="280.0" height="35" fill="#419d93"/>
-<path d="M 556.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 591.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 626.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 661.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 696.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 731.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<path d="M 766.0 349.0 v 35" stroke="#e9f0f6" stroke-width="2"/>
-<text x="661.0" y="371.5" text-anchor="middle" fill="white" font-size="14">B3</text>
+<rect x="227.0" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="227.00000000000003" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="242.40000000000006" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_1</text>
+<rect x="262.6" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="262.6" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="278.00000000000006" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_2</text>
+<rect x="298.2" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="298.20000000000005" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="313.6000000000001" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_3</text>
+<rect x="333.8" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="333.80000000000007" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="349.20000000000005" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_4</text>
+<rect x="369.4" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="369.4000000000001" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="384.80000000000007" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_5</text>
+<rect x="405.0" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="405.0" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="420.40000000000003" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_6</text>
+<rect x="440.6" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="440.6" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="456.00000000000006" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_7</text>
+<rect x="476.2" y="566.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="476.20000000000005" y="566.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="491.6000000000001" y="588.5" text-anchor="middle" fill="white" font-size="14">A1_8</text>
+<rect x="227.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="227.00000000000003" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="244.50000000000003" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_1 · N</text>
+<rect x="227.00000000000003" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="244.50000000000003" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_1 · S</text>
+<rect x="262.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="262.0" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="279.5" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_2 · N</text>
+<rect x="262.0" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="279.5" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_2 · S</text>
+<rect x="297.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="297.0" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="314.5" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_3 · N</text>
+<rect x="297.0" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="314.5" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_3 · S</text>
+<rect x="332.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="332.0" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="349.50000000000006" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_4 · N</text>
+<rect x="332.0" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="349.50000000000006" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_4 · S</text>
+<rect x="367.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="367.00000000000006" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="384.50000000000006" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_5 · N</text>
+<rect x="367.00000000000006" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="384.50000000000006" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_5 · S</text>
+<rect x="402.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="402.00000000000006" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="419.50000000000006" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_6 · N</text>
+<rect x="402.00000000000006" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="419.50000000000006" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_6 · S</text>
+<rect x="437.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="437.00000000000006" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="454.50000000000006" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_7 · N</text>
+<rect x="437.00000000000006" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="454.50000000000006" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_7 · S</text>
+<rect x="472.0" y="440.0" width="35.0" height="70.0" fill="#488cc0"/>
+<rect x="472.00000000000006" y="440.0" width="35.0" height="35" fill="#488cc0"/>
+<text x="489.50000000000006" y="462.5" text-anchor="middle" fill="white" font-size="14">A2_8 · N</text>
+<rect x="472.00000000000006" y="475.0" width="35.0" height="35" fill="#b97950"/>
+<text x="489.50000000000006" y="497.5" text-anchor="middle" fill="white" font-size="14">A2_8 · S</text>
+<rect x="227.0" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="227.00000000000003" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="242.40000000000006" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_1</text>
+<rect x="262.6" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="262.6" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="278.00000000000006" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_2</text>
+<rect x="298.2" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="298.20000000000005" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="313.6000000000001" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_3</text>
+<rect x="333.8" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="333.80000000000007" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="349.20000000000005" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_4</text>
+<rect x="369.4" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="369.4000000000001" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="384.80000000000007" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_5</text>
+<rect x="405.0" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="405.0" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="420.40000000000003" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_6</text>
+<rect x="440.6" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="440.6" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="456.00000000000006" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_7</text>
+<rect x="476.2" y="349.0" width="30.8" height="35.0" fill="#488cc0"/>
+<rect x="476.20000000000005" y="349.0" width="30.8" height="35" fill="#488cc0"/>
+<text x="491.6000000000001" y="371.5" text-anchor="middle" fill="white" font-size="14">A3_8</text>
+<rect x="521.0" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="521.0" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="536.4000000000001" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_1</text>
+<rect x="556.6" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="556.6" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="572.0" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_2</text>
+<rect x="592.2" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="592.2" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="607.6" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_3</text>
+<rect x="627.8" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="627.8" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="643.2" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_4</text>
+<rect x="663.4" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="663.4" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="678.8000000000001" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_5</text>
+<rect x="699.0" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="699.0" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="714.4000000000001" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_6</text>
+<rect x="734.6" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="734.6" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="750.0000000000001" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_7</text>
+<rect x="770.2" y="566.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="770.1999999999999" y="566.0" width="30.8" height="35" fill="#419d93"/>
+<text x="785.6" y="588.5" text-anchor="middle" fill="white" font-size="14">B1_8</text>
+<rect x="521.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="521.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="538.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_1 · N</text>
+<rect x="521.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="538.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_1 · S</text>
+<rect x="556.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="556.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="573.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_2 · N</text>
+<rect x="556.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="573.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_2 · S</text>
+<rect x="591.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="591.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="608.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_3 · N</text>
+<rect x="591.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="608.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_3 · S</text>
+<rect x="626.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="626.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="643.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_4 · N</text>
+<rect x="626.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="643.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_4 · S</text>
+<rect x="661.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="661.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="678.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_5 · N</text>
+<rect x="661.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="678.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_5 · S</text>
+<rect x="696.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="696.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="713.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_6 · N</text>
+<rect x="696.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="713.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_6 · S</text>
+<rect x="731.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="731.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="748.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_7 · N</text>
+<rect x="731.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="748.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_7 · S</text>
+<rect x="766.0" y="440.0" width="35.0" height="70.0" fill="#419d93"/>
+<rect x="766.0" y="440.0" width="35.0" height="35" fill="#419d93"/>
+<text x="783.5" y="462.5" text-anchor="middle" fill="white" font-size="14">B2_8 · N</text>
+<rect x="766.0" y="475.0" width="35.0" height="35" fill="#b69b43"/>
+<text x="783.5" y="497.5" text-anchor="middle" fill="white" font-size="14">B2_8 · S</text>
+<rect x="521.0" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="521.0" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="536.4000000000001" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_1</text>
+<rect x="556.6" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="556.6" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="572.0" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_2</text>
+<rect x="592.2" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="592.2" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="607.6" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_3</text>
+<rect x="627.8" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="627.8" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="643.2" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_4</text>
+<rect x="663.4" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="663.4" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="678.8000000000001" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_5</text>
+<rect x="699.0" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="699.0" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="714.4000000000001" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_6</text>
+<rect x="734.6" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="734.6" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="750.0000000000001" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_7</text>
+<rect x="770.2" y="349.0" width="30.8" height="35.0" fill="#419d93"/>
+<rect x="770.1999999999999" y="349.0" width="30.8" height="35" fill="#419d93"/>
+<text x="785.6" y="371.5" text-anchor="middle" fill="white" font-size="14">B3_8</text>
 <rect x="118.50000000000006" y="779.5000000000001" width="49" height="49" fill="#a8d2bd" stroke="#4a8d70"/>
 <circle cx="143.00000000000003" cy="804.0" r="4" fill="#24384b"/>
 <text x="150.00000000000003" y="796.0" font-size="11">P1</text>
@@ -173,7 +271,7 @@
 <text x="864.0" y="363.0" text-anchor="middle" font-size="12">2,10 м</text>
 <text x="514.0" y="688.5" text-anchor="middle" font-size="12">Южный проезд · 1,35 м</text>
 <text x="80" y="902" font-size="18" font-weight="bold">План движения</text>
-<text x="80" y="931" font-size="15">Стеллажи доходят до центральной стены. A2/B2: 4 × 1 м, по 16 секций; N/S — разные коробки.</text>
+<text x="80" y="931" font-size="15">Внешние ряды разделены физическими промежутками для лидара; центральные A2/B2 остаются вплотную.</text>
 <text x="80" y="958" font-size="15">У стеллажей — один робот по резервированию; в основных проездах — встречное движение.</text>
 <text x="80" y="985" font-size="15">Обход склада — с запада и востока; центральная стенка разделяет зоны A и B.</text>
 <text x="80" y="1021" font-size="13" fill="#587080">Координаты в метрах: начало в центре, +X вправо, +Y вверх. Точки — позиции робота.</text>

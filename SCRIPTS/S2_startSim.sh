@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Запуск симуляции TurtleBot3 после выполнения S1_installRos2.sh.
+# Передайте lidar_visual:=false, чтобы скрыть лучи лидара, сохранив /scan.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-ROS_DISTRO=jazzy
+ROS_DISTRO=humble
 
 if [[ ! -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
   echo "ROS 2 ${ROS_DISTRO^} не найден. Сначала запустите S1_installRos2.sh." >&2
@@ -17,7 +18,6 @@ if [[ ! -f "${PROJECT_DIR}/ros2_ws/install/setup.bash" ]]; then
 fi
 
 export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
-# export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-waffle}"
 # File in the common waypoint format:
 # name,map_x,map_y,qz,qw[,gazebo_x,gazebo_y].  The warehouse launch reads it
 # and creates visual waypoint markers as soon as Gazebo is ready.
@@ -34,20 +34,22 @@ if [[ -f "${POINTS_FILE}" ]]; then
 else
   echo "Файл точек не найден: ${POINTS_FILE}; метки не будут показаны." >&2
 fi
-# Each warehouse instance must use its own Gazebo Transport partition. Otherwise
-# a GUI started after an interrupted run can discover old servers and receive
-# duplicate scene entities, which crashes the Gazebo GUI.
-if [[ -z "${GZ_PARTITION:-}" ]]; then
-  export GZ_PARTITION="tb3_warehouse_${USER:-user}_$$_${RANDOM}"
-fi
-# Teleop is usually started from another terminal. Give it the same private
-# Gazebo Transport partition so it can add visual waypoint models.
-PARTITION_FILE="${TMPDIR:-/tmp}/tb3_warehouse_${USER:-user}.gz_partition"
-printf '%s\n' "${GZ_PARTITION}" > "${PARTITION_FILE}"
 set +u
 source "/opt/ros/${ROS_DISTRO}/setup.bash"
 source "${PROJECT_DIR}/ros2_ws/install/setup.bash"
 set -u
-# В Jazzy Gazebo Sim не получает этот каталог автоматически из ament-окружения.
-export GZ_SIM_SYSTEM_PLUGIN_PATH="${PROJECT_DIR}/ros2_ws/install/turtlebot3_gazebo/lib/turtlebot3_gazebo${GZ_SIM_SYSTEM_PLUGIN_PATH:+:${GZ_SIM_SYSTEM_PLUGIN_PATH}}"
-exec ros2 launch turtlebot3_gazebo turtlebot3_warehouse.launch.py "$@"
+
+# Если планировка явно не указана, запускается малый склад.
+HAS_WORLD_ARGUMENT=false
+for launch_argument in "$@"; do
+  if [[ "${launch_argument}" == world:=* || "${launch_argument}" == map:=* ]]; then
+    HAS_WORLD_ARGUMENT=true
+    break
+  fi
+done
+
+if [[ "${HAS_WORLD_ARGUMENT}" == true ]]; then
+  exec ros2 launch turtlebot3_gazebo turtlebot3_warehouse.launch.py "$@"
+else
+  exec ros2 launch turtlebot3_gazebo turtlebot3_warehouse.launch.py world:=small "$@"
+fi
