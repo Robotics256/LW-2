@@ -2,16 +2,14 @@
 import rclpy
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from nav2_msgs.msg import SpeedLimit
+from rclpy.parameter import Parameter
 import argparse
 import time
-from pathlib import Path
 
 from waypoint_file import waypoints_by_name
 from gazebo_trail import GazeboTrail
-
-
-POSITION_ONLY_BT = Path(__file__).with_name("position_only_navigation.xml")
-ORIENTATION_AWARE_BT = Path(__file__).with_name("orientation_aware_navigation.xml")
+from lw2_config import DEFAULT_CONFIG_FILE
+from navigation_modes import add_mode_arguments, add_trail_arguments, behavior_tree, validate_trail
 
 
 def publish_speed_limit(navigator, speed):
@@ -43,11 +41,23 @@ def wait_for_navigation_without_resetting_pose(navigator):
             rclpy.spin_once(navigator, timeout_sec=0.2)
 
 
-def main(points_file, point_names, speed, ignore_orientation, trail_color_number):
+def main(
+    points_file,
+    point_names,
+    speed,
+    navigation_mode,
+    trail_color_number,
+    config_file,
+):
     rclpy.init()
     navigator = BasicNavigator()
+    navigator.set_parameters([Parameter("use_sim_time", value=True)])
     trail = (
-        GazeboTrail(navigator, color_number=trail_color_number)
+        GazeboTrail(
+            navigator,
+            color_number=trail_color_number,
+            config_file=config_file,
+        )
         if trail_color_number is not False else None
     )
 
@@ -62,24 +72,22 @@ def main(points_file, point_names, speed, ignore_orientation, trail_color_number
         wait_for_navigation_without_resetting_pose(navigator)
         speed_limit_publisher = publish_speed_limit(navigator, speed)
         print(f"Ограничение линейной скорости: {speed:.2f} м/с")
-        if ignore_orientation:
-            print("Режим цели: только координаты x, y; ориентация игнорируется")
-        else:
-            print("Режим цели: координаты x, y и сохранённая ориентация")
+        print(f"Режим прибытия: {navigation_mode}")
         if trail is not None:
             print("Пунктирный след в Gazebo включён")
         for name in point_names:
             waypoint = waypoints[name]
             pose = waypoint["pose"]
+            pose.header.stamp = navigator.get_clock().now().to_msg()
             print(f"\nДвижение к '{name}': x={pose.pose.position.x}, y={pose.pose.position.y}")
             if trail is not None:
                 trail.start(name)
-            navigator.goToPose(
+            accepted = navigator.goToPose(
                 pose,
-                behavior_tree=str(
-                    POSITION_ONLY_BT if ignore_orientation else ORIENTATION_AWARE_BT
-                ),
+                behavior_tree=behavior_tree(navigation_mode),
             )
+            if not accepted:
+                raise RuntimeError(f"Nav2 отклонил цель '{name}'")
             while not navigator.isTaskComplete():
                 if trail is not None:
                     trail.sample()
@@ -108,25 +116,22 @@ if __name__ == '__main__':
         "--speed", type=float, default=0.20,
         help="Maximum linear speed in m/s (default: 0.20; warehouse maximum: 0.30)",
     )
+    add_mode_arguments(parser)
+    add_trail_arguments(parser)
     parser.add_argument(
-        "--ignore-orientation", action="store_true",
-        help="Считать точку достигнутой по координатам x, y без требования конечной ориентации",
-    )
-    parser.add_argument(
-        "--trail", nargs="?", type=int, const=None, default=False,
-        help=("Оставлять в Gazebo пунктирный след; без числа — синий, "
-              "с числом 1–21 — цвет из SCRIPTS/trail_colors.json"),
+        "--config",
+        default=str(DEFAULT_CONFIG_FILE),
+        help="Общий JSON-конфиг LW-2",
     )
     arguments = parser.parse_args()
     if not 0.0 < arguments.speed <= 0.30:
         parser.error("--speed должна быть больше 0 и не больше 0.30 м/с")
-    if arguments.trail is not False and arguments.trail is not None:
-        if not 1 <= arguments.trail <= 21:
-            parser.error("--trail принимает номер цвета от 1 до 21")
+    validate_trail(parser, arguments.trail)
     main(
         arguments.points_file,
         arguments.points,
         arguments.speed,
-        arguments.ignore_orientation,
+        arguments.navigation_mode,
         arguments.trail,
+        arguments.config,
     )

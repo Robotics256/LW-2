@@ -5,18 +5,15 @@ import json
 import random
 import time
 
-from waypoint_file import waypoints_by_name
+from waypoint_file import waypoint_names
+from navigation_modes import add_mode_arguments
+from lw2_config import (WORKSPACE, MODULE_NAME, MODULE_TYPE, MQTT_BROKER, MQTT_PORT,
+                        MQTT_COMMAND_TOPIC, configure_mqtt_auth)
 
 
 
 
-WORKSPACE = "space_v21"
-MODULE_NAME = "amr1_v21"
-MODULE_TYPE = "delivery"
-
-MQTT_BROKER = "broker.emqx.io"
-MQTT_PORT = 1883
-MQTT_TOPIC = f"{WORKSPACE}/devices/in/{MODULE_TYPE}/{MODULE_NAME}"
+MQTT_TOPIC = MQTT_COMMAND_TOPIC
 # MQTT_USERNAME = "username"
 # MQTT_PASSWORD = "password"
 
@@ -25,7 +22,7 @@ def get_random_int(max_value):
     return random.randint(1, max_value)
 
 
-def build_task_payload(point_name):
+def build_task_payload(point_name, mode=None):
     """
     Формирует JSON:
     """
@@ -46,23 +43,26 @@ def build_task_payload(point_name):
                 "Task": {
                     "Id": task_id,
                     "Type": "Point",
-                    "Data": point_name
+                    "Data": point_name,
                 }
             }
         }
     }
 
+    if mode is not None:
+        payload["Module"]["Data"]["Task"]["Mode"] = mode
     return task_id, payload
 
 
-def send_move_task(point_name: str):
+def send_move_task(point_name: str, mode=None):
     client = mqtt.Client(client_id=f"task-sender-{random.randint(0, 10000)}")
+    configure_mqtt_auth(client)
     # client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 
     client.connect(MQTT_BROKER, MQTT_PORT, 60)
     client.loop_start()
 
-    task_id, payload = build_task_payload(point_name)
+    task_id, payload = build_task_payload(point_name, mode)
     json_payload = json.dumps(payload)
 
     # Публикуем в JSON‑топик (его слушает ваш узел)
@@ -81,10 +81,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send one Nav2 waypoint through MQTT.")
     parser.add_argument("point", help="Waypoint name from points.txt")
     parser.add_argument("--points-file", default="~/points.txt", help="Path to points.txt")
+    add_mode_arguments(parser, default=None)
     arguments = parser.parse_args()
     try:
-        if arguments.point not in waypoints_by_name(arguments.points_file):
+        if arguments.point not in waypoint_names(arguments.points_file):
             parser.error(f"точка '{arguments.point}' не найдена в {arguments.points_file}")
     except (FileNotFoundError, ValueError) as error:
         parser.error(str(error))
-    send_move_task(arguments.point)
+    send_move_task(arguments.point, arguments.navigation_mode)

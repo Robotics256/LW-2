@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Запуск симуляции TurtleBot3 после выполнения S1_installRos2.sh.
-# Передайте lidar_visual:=false, чтобы скрыть лучи лидара, сохранив /scan.
+# По умолчанию: small, navigation (лидар скрыт, сохранённые точки показаны).
+# mode:=mapping показывает лидар и скрывает метки точек; /scan работает всегда.
 
 set -euo pipefail
 

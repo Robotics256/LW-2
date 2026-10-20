@@ -9,11 +9,10 @@ The optional Gazebo coordinates are metadata and are not used as a Nav2 goal.
 
 from pathlib import Path
 
-from geometry_msgs.msg import Point, PoseStamped
-
-
 def load_waypoints(file_path):
     """Return named poses from *file_path* or raise a clear error."""
+    from geometry_msgs.msg import Point, PoseStamped
+
     path = Path(file_path).expanduser()
     if not path.is_file():
         raise FileNotFoundError(f"Файл точек не найден: {path}")
@@ -22,7 +21,7 @@ def load_waypoints(file_path):
     names = set()
     with path.open(encoding="utf-8") as points:
         for line_number, line in enumerate(points, 1):
-            if not line.strip():
+            if not line.strip() or line.lstrip().startswith("#"):
                 continue
             parts = [part.strip() for part in line.split(",")]
             if len(parts) < 5 or not parts[0]:
@@ -54,3 +53,26 @@ def load_waypoints(file_path):
 def waypoints_by_name(file_path):
     """Return a name-to-waypoint mapping for command-line clients."""
     return {waypoint["name"]: waypoint for waypoint in load_waypoints(file_path)}
+
+
+def waypoint_names(file_path):
+    """Validate a sender's points file without requiring ROS on that host."""
+    import math
+
+    path = Path(file_path).expanduser()
+    names = set()
+    with path.open(encoding="utf-8") as source:
+        for number, line in enumerate(source, 1):
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            fields = [field.strip() for field in line.split(",")]
+            if len(fields) not in (5, 7) or not fields[0] or fields[0] in names:
+                raise ValueError(f"{path}, строка {number}: неверная или повторная точка")
+            try:
+                values = list(map(float, fields[1:]))
+            except ValueError as error:
+                raise ValueError(f"{path}, строка {number}: координаты должны быть числами") from error
+            if not all(map(math.isfinite, values)):
+                raise ValueError(f"{path}, строка {number}: координаты должны быть конечными")
+            names.add(fields[0])
+    return names

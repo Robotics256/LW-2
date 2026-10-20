@@ -39,10 +39,11 @@ sudo dpkg -i "${ROS_APT_DEB}"
 sudo apt update
 sudo apt install -y \
   ros-humble-desktop ros-dev-tools python3-colcon-common-extensions \
-  python3-paho-mqtt \
+  python3-paho-mqtt python3-yaml \
   ros-humble-gazebo-ros-pkgs \
   ros-humble-cartographer ros-humble-cartographer-ros \
-  ros-humble-navigation2 ros-humble-nav2-bringup
+  ros-humble-navigation2 ros-humble-nav2-bringup \
+  ros-humble-nav2-simple-commander ros-humble-nav2-collision-monitor
 
 set +u
 source /opt/ros/humble/setup.bash
@@ -59,6 +60,8 @@ echo "=========================================="
 echo "Сборка workspace ROS 2 Humble"
 echo "=========================================="
 cd "${WORKSPACE_DIR}"
+# Recreate ignored reference maps and all three navigation checkers on a fresh checkout.
+python3 "${SCRIPT_DIR}/generate_warehouse.py"
 colcon build --symlink-install --executor sequential
 
 set +u
@@ -70,6 +73,11 @@ echo "Проверка установки ROS 2 Humble + TurtleBot3"
 echo "=========================================="
 python3 --version
 python3 -c "import paho.mqtt.client; print('paho-mqtt: OK')"
+python3 -c "import yaml; from nav2_simple_commander.robot_navigator import BasicNavigator; print('YAML, Nav2 commander: OK')"
+WAREHOUSE_SHARE="$(ros2 pkg prefix --share turtlebot3_gazebo)"
+for asset in worlds/turtlebot3_warehouse_automotive.world maps/warehouse_automotive.yaml maps/warehouse_automotive.pgm; do
+  [[ -f "${WAREHOUSE_SHARE}/${asset}" ]] || { echo "Не установлен ресурс ${asset}" >&2; exit 1; }
+done
 echo "ROS 2 дистрибутив: ${ROS_DISTRO}"
 echo "ROS 2: $(command -v ros2)"
 echo "Workspace: ${WORKSPACE_DIR}"

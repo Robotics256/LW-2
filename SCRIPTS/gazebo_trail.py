@@ -1,11 +1,10 @@
 """Draw a visual-only dotted robot trail in Gazebo Classic."""
 
-import json
 import math
 import os
-from pathlib import Path
 
 from gazebo_msgs.srv import GetEntityState, SpawnEntity
+from lw2_config import DEFAULT_CONFIG_FILE, load_trail_color as load_configured_trail_color
 
 
 TRAIL_DOT_SDF = '''<sdf version="1.6">
@@ -29,35 +28,13 @@ TRAIL_DOT_SDF = '''<sdf version="1.6">
   </model>
 </sdf>'''
 DEFAULT_TRAIL_COLOR = (0.05, 0.25, 1.0)
-TRAIL_COLORS_FILE = Path(__file__).with_name("trail_colors.json")
 
 
-def load_trail_color(color_number):
+def load_trail_color(color_number, config_file=DEFAULT_CONFIG_FILE):
     """Return the configured RGB colour for a trail number from 1 through 21."""
     if color_number is None:
         return DEFAULT_TRAIL_COLOR
-
-    try:
-        colors = json.loads(TRAIL_COLORS_FILE.read_text(encoding="utf-8"))
-        color = colors[str(color_number)]
-    except (OSError, json.JSONDecodeError, KeyError) as error:
-        raise ValueError(
-            f"Не удалось прочитать цвет следа {color_number} из {TRAIL_COLORS_FILE}: {error}"
-        ) from error
-
-    if not (
-        isinstance(color, list)
-        and len(color) == 3
-        and all(
-            not isinstance(component, bool)
-            and isinstance(component, (int, float))
-            and 0 <= component <= 1
-            for component in color
-        )
-    ):
-        raise ValueError("Цвет следа должен быть списком из трёх чисел от 0 до 1")
-
-    return tuple(color)
+    return load_configured_trail_color(color_number, config_file)
 
 
 def trail_dot_sdf(color):
@@ -78,10 +55,18 @@ def trail_dot_sdf(color):
 class GazeboTrail:
     """Sample the robot world pose and spawn non-colliding floor dots."""
 
-    def __init__(self, node, spacing=0.18, color_number=None):
+    def __init__(
+        self,
+        node,
+        spacing=0.18,
+        color_number=None,
+        config_file=DEFAULT_CONFIG_FILE,
+    ):
         self._node = node
         self._spacing = spacing
-        self._dot_sdf = trail_dot_sdf(load_trail_color(color_number))
+        self._dot_sdf = trail_dot_sdf(
+            load_trail_color(color_number, config_file)
+        )
         self._robot_name = os.environ.get("TURTLEBOT3_MODEL", "burger")
         self._state_client = node.create_client(
             GetEntityState, "/gazebo/get_entity_state"

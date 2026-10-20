@@ -27,6 +27,7 @@ def launch_setup(context):
         'large': ('turtlebot3_warehouse.world', '-4.3', '-4.5'),
         'small': ('turtlebot3_warehouse_small.world', '-1.75', '-4.5'),
         'stage4': ('turtlebot3_dqn_stage4.world', '0.0', '-2.0'),
+        'automotive': ('turtlebot3_warehouse_automotive.world', '0.0', '-20.0'),
     }
     if world_name not in worlds:
         choices = ', '.join(worlds)
@@ -35,7 +36,13 @@ def launch_setup(context):
     world_file, default_x, default_y = worlds[world_name]
     x_pose = LaunchConfiguration('x_pose').perform(context) or default_x
     y_pose = LaunchConfiguration('y_pose').perform(context) or default_y
-    lidar_visual = LaunchConfiguration('lidar_visual').perform(context)
+    mode = LaunchConfiguration('mode').perform(context)
+    if mode not in ('mapping', 'navigation'):
+        raise RuntimeError("mode must be mapping or navigation")
+    lidar_visual = LaunchConfiguration('lidar_visual').perform(context) or str(mode == 'mapping').lower()
+    show_waypoints = LaunchConfiguration('show_waypoints').perform(context) or str(mode == 'navigation').lower()
+    if lidar_visual.lower() not in ('true', 'false') or show_waypoints.lower() not in ('true', 'false'):
+        raise RuntimeError('lidar_visual and show_waypoints must be true or false')
     world_path = os.path.join(package_share, 'worlds', world_file)
 
     actions = [
@@ -73,7 +80,9 @@ def launch_setup(context):
     marker_script = (
         os.path.join(project_dir, 'SCRIPTS', 'show_waypoints.py')
         if project_dir else '')
-    if points_file and marker_script and os.path.isfile(points_file) and os.path.isfile(marker_script):
+    points_file = os.path.expanduser(points_file)
+    if (show_waypoints.lower() == 'true' and points_file and marker_script
+            and os.path.isfile(points_file) and os.path.isfile(marker_script)):
         actions.append(ExecuteProcess(
             cmd=['python3', marker_script, points_file],
             output='screen',
@@ -85,7 +94,10 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'world', default_value='small',
-            description='Warehouse layout: small, large, or stage4'),
+            description='Warehouse layout: small, large, stage4, automotive'),
+        DeclareLaunchArgument(
+            'mode', default_value='navigation',
+            description='mapping: visible lidar and hidden waypoint marks; navigation: inverse'),
         DeclareLaunchArgument(
             'map', default_value='',
             description='Backward-compatible alias for the world argument'),
@@ -102,7 +114,10 @@ def generate_launch_description():
             'points_file', default_value=os.environ.get('TB3_POINTS_FILE', ''),
             description='Optional saved-waypoint file'),
         DeclareLaunchArgument(
-            'lidar_visual', default_value='true',
-            description='Show Gazebo lidar rays without changing the /scan sensor'),
+            'lidar_visual', default_value='',
+            description='Override lidar visibility; empty selects the mode default'),
+        DeclareLaunchArgument(
+            'show_waypoints', default_value='',
+            description='Override saved-point visibility; empty selects the mode default'),
         OpaqueFunction(function=launch_setup),
     ])

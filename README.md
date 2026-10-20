@@ -33,12 +33,18 @@ LW-2/
 ├── SCRIPTS/
 │   ├── S1_installRos2.sh         # установка ROS 2 и сборка workspace
 │   ├── S2_startSim.sh            # запуск мира TurtleBot3 в Gazebo
+│   ├── S2_startMapping.sh        # запуск мира для SLAM: лидар виден, метки скрыты
 │   ├── S3_startNav.sh            # запуск Nav2 с указанной картой
 │   ├── teleop_keyboard_save.py   # ручное управление и запись точек
 │   ├── show_waypoints.py         # отображение сохранённых точек при запуске мира
 │   ├── mqtt_driver.py            # мост MQTT → Nav2
 │   ├── sent_one_task.py          # отправка отдельного задания
 │   ├── sent_many_task.py         # последовательная отправка заданий
+│   ├── send_command.py           # JSON status, history и Stop
+│   ├── start_tb3.sh              # мир + Nav2 + MQTT одной командой
+│   ├── manual_load.py             # ручная команда загрузки через MQTT
+│   ├── manual_unload.py           # ручная команда выгрузки через MQTT
+│   ├── lw2_config.json            # общий пользовательский конфиг визуализации
 │   └── navigate_waypoints.py     # навигация по списку точек
 └── ros2_ws/                      # workspace ROS 2 с пакетами TurtleBot3
 ```
@@ -47,7 +53,10 @@ LW-2/
 
 ## Установка
 
-Скрипт проверяет Ubuntu 22.04, устанавливает ROS 2 Humble, Gazebo Classic, Python-зависимости, Nav2 и Cartographer, затем собирает workspace. Для его работы необходимы права `sudo` и подключение к интернету; запуск возможен из любой директории.
+Скрипт проверяет Ubuntu 22.04, устанавливает ROS 2 Humble, Gazebo Classic,
+`paho-mqtt`, PyYAML, Nav2, Collision Monitor и Cartographer, генерирует учебные
+карты и параметры навигации, затем собирает workspace. Для его работы нужны
+права `sudo` и интернет; запуск возможен из любой директории.
 
 ```bash
 chmod +x ./LW-2/SCRIPTS/S1_installRos2.sh
@@ -62,16 +71,26 @@ cd ~/LW-2/ros2_ws
 colcon build --symlink-install --executor sequential
 ```
 
+При обновлении уже установленного проекта переустановка ROS не требуется:
+
+```bash
+python3 ~/LW-2/SCRIPTS/generate_warehouse.py
+source /opt/ros/humble/setup.bash
+cd ~/LW-2/ros2_ws
+colcon build --symlink-install --executor sequential \
+  --packages-select turtlebot3_gazebo turtlebot3_navigation2 turtlebot3_cartographer
+```
+
 ## Полная последовательность лабораторной
 
-Ниже приведён рабочий порядок из методички, адаптированный для Ubuntu 24.04,
+Ниже приведён рабочий порядок из методички для Ubuntu 22.04,
 ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывайте до конца
 соответствующего этапа; каждый блок запускайте в отдельном терминале.
 
-1. Запустите склад:
+1. Запустите склад для построения карты: лидар виден, метки точек скрыты.
 
    ```bash
-   ~/LW-2/SCRIPTS/S2_startSim.sh
+   ~/LW-2/SCRIPTS/S2_startMapping.sh
    ```
 
 2. Во втором терминале обязательно запустите Cartographer:
@@ -117,7 +136,7 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    координат. Поэтому в RViz необходимо указать его начальную позу и направление.
 
    ```bash
-   ~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt lidar_visual:=false
+   ~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
    ```
 
    ```bash
@@ -178,17 +197,47 @@ chmod +x ./LW-2/SCRIPTS/S2_startSim.sh
 | `large` | Большой склад 12 × 10 м, зоны A и B, T1–T4 | `warehouse.yaml` |
 | `small` | Малый склад 6 × 10 м, зона A, T1/T2/T4 | `warehouse_small.yaml` |
 | `stage4` | Штатный пример `turtlebot3_dqn_stage4` | карту нужно построить Cartographer |
+| `automotive` | Склад автозавода 72 × 48 м | `warehouse_automotive.yaml` |
 
 ```bash
 ~/LW-2/SCRIPTS/S2_startSim.sh world:=large
 ~/LW-2/SCRIPTS/S2_startSim.sh world:=small
 ~/LW-2/SCRIPTS/S2_startSim.sh world:=stage4
+~/LW-2/SCRIPTS/S2_startSim.sh world:=automotive
 ```
 
 `small` — значение по умолчанию. Для большого варианта явно передайте
 `world:=large`.
 В запуске симулятора также допустимо `map:=small` как синоним `world:=small`.
 В команде Nav2 `map:=...` по-прежнему означает путь к файлу `.yaml`.
+
+Для SLAM и записи точек запускайте `S2_startMapping.sh`; он эквивалентен
+`S2_startSim.sh mode:=mapping`. Для автозавода:
+
+```bash
+~/LW-2/SCRIPTS/S2_startMapping.sh world:=automotive
+```
+
+`mode:=mapping` показывает лучи лидара и скрывает сохранённые метки;
+`mode:=navigation` (по умолчанию) скрывает лучи и показывает метки.
+Сам `/scan` работает в обоих режимах. `lidar_visual:=true|false` и
+`show_waypoints:=true|false` явно переопределяют отображение.
+Во время ручной записи точки сохраняются в файл, но не рисуются;
+для их показа в teleop есть `--show-waypoints`.
+
+Совместный запуск Gazebo, Nav2 и JSON MQTT-драйвера:
+
+```bash
+~/LW-2/SCRIPTS/start_tb3.sh ~/warehouse_map.yaml --points-file ~/points.txt
+~/LW-2/SCRIPTS/start_tb3.sh ~/automotive_map.yaml \
+  --world automotive --points-file ~/points_automotive.txt
+```
+
+Без пути карты этот скрипт использует эталонную карту выбранного мира;
+точки должны относиться к той же системе координат. Для `stage4` карта
+обязательна. После запуска задайте **2D Pose Estimate** в RViz.
+`--orientation` включает сохранённый конечный угол, `--headless` отключает
+окна Gazebo и RViz. Подробнее об автозаводе: [AUTOMOTIVE.md](docs/warehouse/AUTOMOTIVE.md).
 
 ### Большой учебный склад
 
@@ -220,11 +269,10 @@ colcon build --symlink-install --packages-select turtlebot3_gazebo
 ~/LW-2/SCRIPTS/S2_startSim.sh gui:=false
 ```
 
-Чтобы скрыть в Gazebo синие лучи лидара, не отключая сам датчик и топик
-`/scan`, передайте параметр:
+В режиме навигации лучи скрыты по умолчанию. Чтобы явно показать их:
 
 ```bash
-~/LW-2/SCRIPTS/S2_startSim.sh lidar_visual:=false
+~/LW-2/SCRIPTS/S2_startSim.sh lidar_visual:=true
 ```
 
 Burger — модель по умолчанию во всех скриптах. Не смешивайте модели между
@@ -281,8 +329,9 @@ python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
 
 Формат строки в файле:
 `имя, map_x, map_y, orientation_z, orientation_w, gazebo_x, gazebo_y`.
-Последние две координаты нужны только для отображения меток в Gazebo; Nav2
-по умолчанию использует координаты `map_x`, `map_y` и ориентацию.
+Последние две координаты нужны для отображения меток в Gazebo. Nav2 по
+умолчанию использует `map_x`, `map_y`; сохранённый угол учитывается при
+явном выборе `--orientation` или `Mode: "orientation"`.
 
 ## 3. Построение и сохранение карты
 
@@ -373,9 +422,13 @@ python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orien
 
 | Параметр | Значение | Описание |
 |---|---|---|
-| `--ignore-orientation` | флаг | считать цель достигнутой по координатам `x, y`, без требования конечной ориентации |
+| `--mode position` | по умолчанию | прибытие по X/Y с допуском 0.03 м, без конечного доворота |
+| `--orientation`, `--mode orientation` | флаг / режим | также достигать сохранённого угла с допуском 0.1 рад |
+| `--mode proximity` | режим | прибытие в радиусе 0.3 м, без конечного доворота |
+| `--ignore-orientation` | совместимый флаг | явно выбрать стандартный режим `position` |
 | `--speed ЧИСЛО` | `0.20` м/с по умолчанию | максимальная линейная скорость; допустимо `0 < speed <= 0.30` м/с |
-| `--trail [1–21]` | необязательный номер цвета | показать в Gazebo пунктирный след движения; без номера он синий, с номером использует цвет из `SCRIPTS/trail_colors.json` |
+| `--trail [1–21]` | след включён по умолчанию | выбрать цвет следа; без номера он синий, с номером — из `SCRIPTS/lw2_config.json` |
+| `--no-trail` | флаг | отключить след движения |
 
 Например, для скорости `0.15` м/с:
 
@@ -401,14 +454,15 @@ python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orien
 ```
 
 Чтобы выбрать цвет следа, передайте номер от 1 до 21, например `--trail 7`.
-Все 21 цвета хранятся в `SCRIPTS/trail_colors.json` в формате RGB от `0` до
-`1`; их можно свободно изменить.
+Все 21 цвета хранятся в разделе `trail_colors` общего файла
+`SCRIPTS/lw2_config.json` в формате RGB от `0` до `1`; их можно свободно
+изменить. Другой общий конфиг можно передать через `--config /путь/config.json`.
 
 След записывается от положения робота в момент отправки цели до завершения
 движения и остаётся видимым до перезапуска симуляции. Метки следа не имеют
 коллизий и не влияют на лидар или Nav2.
 
-В обоих режимах автоматическое аварийное движение задним ходом отключено: если
+Во всех трёх режимах автоматическое аварийное движение задним ходом отключено: если
 Nav2 не сможет построить или выполнить маршрут, робот остановится и программа
 сообщит об ошибке навигации.
 
@@ -420,11 +474,11 @@ Nav2 не сможет построить или выполнить маршру
 
 ### Терминал 4 — MQTT-драйвер
 
-Перед запуском при необходимости измените одинаковым образом параметры `WORKSPACE` и `MODULE_NAME` в файлах:
-
-- `SCRIPTS/mqtt_driver.py`;
-- `SCRIPTS/sent_one_task.py`;
-- `SCRIPTS/sent_many_task.py`.
+Общие MQTT-настройки драйвера и всех отправителей находятся в
+`SCRIPTS/lw2_config.py`. Их можно переопределить переменными окружения
+`TB3_MQTT_BROKER`, `TB3_MQTT_PORT`, `TB3_MQTT_WORKSPACE`, `TB3_MQTT_NAME`,
+`TB3_MQTT_USERNAME` и `TB3_MQTT_PASSWORD`. Установите одинаковые значения
+в терминалах драйвера и отправителей.
 
 В проекте по умолчанию используются вариант 21, пространство `space_v21` и робот `amr1_v21`.
 
@@ -437,19 +491,20 @@ source ./LW-2/ros2_ws/install/setup.bash
 python3 ./LW-2/SCRIPTS/mqtt_driver.py
 ```
 
-Для всех заданий, получаемых этим MQTT-драйвером, можно отключить требование
-конечной ориентации тем же флагом:
+По умолчанию MQTT-драйвер принимает прибытие по X/Y. Чтобы требовать
+сохранённый конечный угол для сообщений без поля `Mode`:
 
 ```bash
-python3 ./LW-2/SCRIPTS/mqtt_driver.py --ignore-orientation
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --orientation
 ```
 
-Пунктирный след для всех заданий MQTT включается отдельно или вместе с режимом
-без ориентации:
+Поле `Mode` в конкретном `Point` имеет приоритет над параметром драйвера.
+При явном выборе режима в отправителе он записывается в JSON-сообщение.
+Пунктирный след включён по умолчанию; можно выбрать цвет или отключить его:
 
 ```bash
-python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail
-python3 ./LW-2/SCRIPTS/mqtt_driver.py --ignore-orientation --trail
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail 7
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --no-trail
 ```
 
 Используемые MQTT-параметры:
@@ -461,6 +516,41 @@ python3 ./LW-2/SCRIPTS/mqtt_driver.py --ignore-orientation --trail
 | Топик статусов | `space_v21/devices/out/delivery/amr1_v21` |
 
 Статусы задания: `0` — выполнено, `1` — выполняется, `2` — ошибка, `3` — робот занят и задание отклонено.
+
+Драйвер также принимает `status`, `history`, `Stop` и цепочки заданий в
+JSON. [Полный формат, ответы и примеры](MQTT_JSON.md).
+
+### Загрузка и выгрузка
+
+MQTT-драйвер принимает штатные типы задач `Upload` (загрузка робота) и
+`Download` (выгрузка). Для удобства также принимаются псевдонимы `Load` и
+`Unload`. Операция не прерывает текущую навигацию и использует ту же схему
+статусов и идемпотентность по `Task.Id`, что и задача `Point`.
+
+При `Upload` в текущей позиции остаётся красный треугольник, а верхняя часть
+робота становится красной. При `Download` остаётся зелёный треугольник, а
+красная накладка снимается. Треугольники расположены выше меток пути и
+сохранённых точек, не имеют коллизий и сохраняются до перезапуска Gazebo.
+
+Эффекты и цвета следа собраны в одном пользовательском файле
+`SCRIPTS/lw2_config.json`. Эффекты груза включаются независимо в разделе
+`cargo`:
+
+```json
+{
+  "cargo": {
+    "floor_markers_enabled": true,
+    "robot_color_enabled": true
+  },
+  "trail_colors": {
+    "1": [0.90, 0.10, 0.10]
+  }
+}
+```
+
+Другой конфиг можно указать через
+`mqtt_driver.py --config /путь/к/config.json`. Старое имя аргумента
+`--cargo-config` сохранено как совместимый псевдоним.
 
 ## 6. Отправка задания через MQTT
 
@@ -492,12 +582,32 @@ python3 ./LW-2/SCRIPTS/mqtt_driver.py --ignore-orientation --trail
 
 Для каждого нового сообщения изменяйте `UID` и `Task.Id`. Поле `Task.Data` должно содержать имя существующей точки из `points.txt`.
 
+Пример загрузки (для выгрузки замените `Upload` на `Download`):
+
+```json
+{
+  "Module": {
+    "Name": "amr1_v21",
+    "Type": "delivery",
+    "UID": 12347,
+    "Data": {
+      "Task": {
+        "Id": 67891,
+        "Type": "Upload",
+        "Data": ""
+      }
+    }
+  }
+}
+```
+
 ### Через MQTT-скрипты Python
 
 Отправка одного задания:
 
 ```bash
 python3 ./LW-2/SCRIPTS/sent_one_task.py parking
+python3 ./LW-2/SCRIPTS/sent_one_task.py parking --orientation
 ```
 
 Скрипт отправляет одно задание. Последний аргумент — существующее имя точки из
@@ -509,8 +619,35 @@ python3 ./LW-2/SCRIPTS/sent_one_task.py parking
 python3 ./LW-2/SCRIPTS/sent_many_task.py parking target1 way_a target2 parking
 ```
 
+У обоих отправителей есть `--mode position|orientation|proximity` и
+сокращение `--orientation`; стандартный режим — X/Y (`position`).
+
 Аргументы задают последовательность точек. Скрипт ждёт статус `0` для каждой
 точки перед отправкой следующей; тайм-аут одного задания — 300 секунд.
+
+Ручная активация загрузки и выгрузки:
+
+```bash
+python3 ./LW-2/SCRIPTS/manual_load.py
+python3 ./LW-2/SCRIPTS/manual_unload.py
+```
+
+То же через общий отправитель: `send_cargo_command.py load` и
+`send_cargo_command.py unload`. Эти тестовые скрипты не требуют ROS 2: нужен
+только `paho-mqtt` и доступ к MQTT-брокеру.
+
+Запросы состояния, истории и остановка с ожиданием ответа:
+
+```bash
+python3 ./LW-2/SCRIPTS/send_command.py status
+python3 ./LW-2/SCRIPTS/send_command.py history --limit 10
+python3 ./LW-2/SCRIPTS/send_command.py Stop
+```
+
+Эти команды работают и во время движения. `Stop` отменяет цель и ожидающие
+шаги; отменённые задания получают `Status=2`, сама успешная остановка — `0`.
+Если Nav2 не подтвердил отмену, ответ содержит ошибку и новые движения
+блокируются до успешного повторного `Stop` с новым `Id`.
 
 ## Логистические процессы
 

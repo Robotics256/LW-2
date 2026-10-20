@@ -276,7 +276,7 @@ def map_to_gazebo_offset(waypoints):
     )
 
 
-def main(points_file, collision_monitor=False):
+def main(points_file, collision_monitor=False, show_waypoints=False):
     settings = None
     if os.name != 'nt':
         settings = termios.tcgetattr(sys.stdin)
@@ -297,8 +297,11 @@ def main(points_file, collision_monitor=False):
     marker_publisher = WaypointMarkerPublisher(node)
     gazebo_marker_publisher = GazeboWaypointPublisher(node)
     saved_waypoints = load_waypoints(points_file)
-    marker_publisher.publish(saved_waypoints)
-    gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
+    if show_waypoints:
+        marker_publisher.publish(saved_waypoints)
+        gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
+    else:
+        marker_publisher.publish([])
     command_topic = TELEOP_CMD_TOPIC if collision_monitor else 'cmd_vel'
     pub = node.create_publisher(Twist, command_topic, qos)
     status = 0
@@ -346,6 +349,13 @@ def main(points_file, collision_monitor=False):
                 control_angular_velocity = 0.0
                 print_vels(target_linear_velocity, target_angular_velocity)
 
+                # Publish before the blocking pose queries and name prompt.
+                # Otherwise Gazebo keeps executing the last movement command.
+                pub.publish(Twist())
+                settle_until = time.monotonic() + 0.3
+                while time.monotonic() < settle_until:
+                    rclpy.spin_once(node, timeout_sec=0.05)
+
                 pose = robot_pose(tf_buffer, node, 'map')
                 if pose is not None:
                     gazebo_pose = gazebo_marker_publisher.robot_position()
@@ -390,8 +400,9 @@ def main(points_file, collision_monitor=False):
                                 'Gazebo model pose is unavailable; no Gazebo marker will be '
                                 'created. Restart S2_startSim.sh and teleop.')
                         saved_waypoints.append(waypoint)
-                        marker_publisher.publish(saved_waypoints)
-                        gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
+                        if show_waypoints:
+                            marker_publisher.publish(saved_waypoints)
+                            gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
                         print(f"Saved map waypoint '{point_name}':", pose.translation.x, pose.translation.y)
                     else:
                         print("Point name don`t enter.")
@@ -439,5 +450,7 @@ if __name__ == '__main__':
                         help='Waypoint file (default: ~/points.txt)')
     parser.add_argument('--collision-monitor', action='store_true',
                         help='Filter teleop velocities through lidar-based slowdown and stop zones.')
+    parser.add_argument('--show-waypoints', action='store_true',
+                        help='Показывать метки записанных точек (при картографировании по умолчанию скрыты).')
     arguments = parser.parse_args()
-    main(os.path.expanduser(arguments.points_file), arguments.collision_monitor)
+    main(os.path.expanduser(arguments.points_file), arguments.collision_monitor, arguments.show_waypoints)

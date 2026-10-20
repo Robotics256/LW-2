@@ -6,19 +6,16 @@ import random
 import time
 import threading
 
-from waypoint_file import waypoints_by_name
+from waypoint_file import waypoint_names
+from navigation_modes import add_mode_arguments
+from lw2_config import (WORKSPACE, MODULE_NAME, MODULE_TYPE, MQTT_BROKER, MQTT_PORT,
+                        MQTT_COMMAND_TOPIC, MQTT_STATUS_TOPIC, configure_mqtt_auth)
 
 
 
 
-WORKSPACE = "space_v21"
-MODULE_NAME = "amr1_v21"
-MODULE_TYPE = "delivery"
-
-MQTT_PUBLISH_TOPIC = f"{WORKSPACE}/devices/in/{MODULE_TYPE}/{MODULE_NAME}"
-MQTT_SUBSCRIBE_TOPIC = f"{WORKSPACE}/devices/out/{MODULE_TYPE}/{MODULE_NAME}"
-MQTT_BROKER = "broker.emqx.io"
-MQTT_PORT = 1883
+MQTT_PUBLISH_TOPIC = MQTT_COMMAND_TOPIC
+MQTT_SUBSCRIBE_TOPIC = MQTT_STATUS_TOPIC
 # MQTT_USERNAME = "username"
 # MQTT_PASSWORD = "password"
 
@@ -26,7 +23,7 @@ def get_random_int(max_value):
     return random.randint(1, max_value)
 
 
-def build_task_payload(point_name: int):
+def build_task_payload(point_name, mode=None):
     task_id = get_random_int(100000)
     uid = get_random_int(100000)
     timestamp = int(time.time() * 1000)
@@ -41,12 +38,14 @@ def build_task_payload(point_name: int):
                 "Task": {
                     "Id": task_id,
                     "Type": "Point",
-                    "Data": point_name
+                    "Data": point_name,
                 }
             }
         }
     }
 
+    if mode is not None:
+        payload["Module"]["Data"]["Task"]["Mode"] = mode
     return task_id, payload
 
 
@@ -59,11 +58,21 @@ class TaskClient:
         self._status_event = threading.Event()
 
         self.client = mqtt.Client(client_id=f"task-sender-{random.randint(0, 10000)}")
+        configure_mqtt_auth(self.client)
         # self.client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
-        self.client.connect(MQTT_BROKER, MQTT_PORT, 60)
         self.client.on_message = self.on_message
-        self.client.subscribe(MQTT_SUBSCRIBE_TOPIC)
+        self._connected = threading.Event()
+        self.client.on_connect = self.on_connect
+        self.client.on_subscribe = lambda *args: self._connected.set()
+        self.client.connect(MQTT_BROKER, MQTT_PORT, 60)
         self.client.loop_start()
+        if not self._connected.wait(10):
+            self.close()
+            raise TimeoutError("MQTT: подписка на ответы не подтверждена за 10 с")
+
+    def on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            client.subscribe(MQTT_SUBSCRIBE_TOPIC, qos=1)
 
     def close(self):
         self.client.loop_stop()
@@ -75,6 +84,8 @@ class TaskClient:
         try:
             root = json.loads(msg.payload.decode())
             module = root.get("Module", {})
+            if module.get("Name") != MODULE_NAME:
+                return
             data = module.get("Data", {})
             status_obj = data.get("Task")
 
@@ -102,8 +113,8 @@ class TaskClient:
 
     # ========= отправка задания =========
 
-    def send_move_task(self, point_name) -> int:
-        task_id, payload = build_task_payload(point_name)
+    def send_move_task(self, point_name, mode=None) -> int:
+        task_id, payload = build_task_payload(point_name, mode)
         json_payload = json.dumps(payload)
 
         result = self.client.publish(MQTT_PUBLISH_TOPIC, json_payload, qos=2)
@@ -128,15 +139,12 @@ class TaskClient:
             if remaining <= 0:
                 raise TimeoutError(f"Timeout ожидания статуса для Id={task_id}")
 
-            # ждём новое событие статуса
             self._status_event.clear()
-            self._status_event.wait(timeout=remaining)
-
             with self._lock:
                 info = self._task_status.get(task_id)
 
             if not info:
-                # ещё нет статуса этого task_id
+                self._status_event.wait(timeout=remaining)
                 continue
 
             status = info["status"]
@@ -153,6 +161,7 @@ class TaskClient:
 
             # 1 — в процессе, ждём дальше
             if status == 1:
+                self._status_event.wait(timeout=remaining)
                 continue
 
             # 2 / 3 — ошибка, кидаем исключение
@@ -166,9 +175,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send waypoints through MQTT one after another.")
     parser.add_argument("points", nargs="+", help="Waypoint names from points.txt")
     parser.add_argument("--points-file", default="~/points.txt", help="Path to points.txt")
+    add_mode_arguments(parser, default=None)
     arguments = parser.parse_args()
     try:
-        known_points = waypoints_by_name(arguments.points_file)
+        known_points = waypoint_names(arguments.points_file)
         missing = [point for point in arguments.points if point not in known_points]
         if missing:
             parser.error(f"точки не найдены в {arguments.points_file}: {', '.join(missing)}")
@@ -177,7 +187,7 @@ if __name__ == "__main__":
     client = TaskClient()
     try:
         for point in arguments.points:
-            task_id = client.send_move_task(point)
+            task_id = client.send_move_task(point, arguments.navigation_mode)
             client.wait_task_success(task_id, timeout=300)
     except Exception as e:
         print(f"Ошибка при выполнении задания: {e}")

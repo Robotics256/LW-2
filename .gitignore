@@ -14,3 +14,13 @@ htmlcov/
 ros2_ws/build/
 ros2_ws/install/
 ros2_ws/log/
+
+# Generated warehouse waypoint data and navigation maps
+/docs/warehouse/layout.json
+/docs/warehouse/points_ground_truth.txt
+/docs/warehouse/small_layout.json
+/docs/warehouse/small_points_ground_truth.txt
+/ros2_ws/src/turtlebot3_simulations/turtlebot3_gazebo/maps/warehouse.pgm
+/ros2_ws/src/turtlebot3_simulations/turtlebot3_gazebo/maps/warehouse.yaml
+/ros2_ws/src/turtlebot3_simulations/turtlebot3_gazebo/maps/warehouse_small.pgm
+/ros2_ws/src/turtlebot3_simulations/turtlebot3_gazebo/maps/warehouse_small.yaml
