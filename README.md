@@ -49,7 +49,21 @@ LW-2/
 └── ros2_ws/                      # workspace ROS 2 с пакетами TurtleBot3
 ```
 
-Все команды ниже выполняются из домашней директории, в которой находится папка `LW-2`:
+## Подготовка к запуску
+
+Команды ниже выполняются из домашней директории, в которой находится папка
+`LW-2`. В каждом новом терминале сначала перейдите в неё. Перед первым
+запуском выдайте разрешение на выполнение всем shell-скриптам проекта:
+
+```bash
+cd "$HOME"
+chmod +x ./LW-2/SCRIPTS/*.sh
+```
+
+`./` означает текущую директорию: команда `./LW-2/SCRIPTS/...` запускается
+из папки, содержащей `LW-2`, а не из самой `LW-2`. Если после распаковки
+архива права на запуск сбросились, повторите `chmod`. Python-скрипты
+в примерах запускаются через `python3`, отдельное разрешение для них не нужно.
 
 ## Установка
 
@@ -59,26 +73,7 @@ LW-2/
 права `sudo` и интернет; запуск возможен из любой директории.
 
 ```bash
-chmod +x ./LW-2/SCRIPTS/S1_installRos2.sh
 ./LW-2/SCRIPTS/S1_installRos2.sh
-```
-
-При повторной ручной сборке workspace используйте:
-
-```bash
-source /opt/ros/humble/setup.bash
-cd ~/LW-2/ros2_ws
-colcon build --symlink-install --executor sequential
-```
-
-При обновлении уже установленного проекта переустановка ROS не требуется:
-
-```bash
-python3 ~/LW-2/SCRIPTS/generate_warehouse.py
-source /opt/ros/humble/setup.bash
-cd ~/LW-2/ros2_ws
-colcon build --symlink-install --executor sequential \
-  --packages-select turtlebot3_gazebo turtlebot3_navigation2 turtlebot3_cartographer
 ```
 
 ## Полная последовательность лабораторной
@@ -87,17 +82,19 @@ colcon build --symlink-install --executor sequential \
 ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывайте до конца
 соответствующего этапа; каждый блок запускайте в отдельном терминале.
 
-1. Запустите склад для построения карты: лидар виден, метки точек скрыты.
+1. Запустите склад для построения карты: лидар виден, ранее сохранённые
+   метки автоматически не загружаются. Показ точек включается отдельно
+   в программе ручного управления на шаге 3.
 
    ```bash
-   ~/LW-2/SCRIPTS/S2_startMapping.sh
+   ./LW-2/SCRIPTS/S2_startMapping.sh
    ```
 
 2. Во втором терминале обязательно запустите Cartographer:
 
    ```bash
    source /opt/ros/humble/setup.bash
-   source ~/LW-2/ros2_ws/install/setup.bash
+   source ./LW-2/ros2_ws/install/setup.bash
    ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
    ```
 
@@ -105,7 +102,7 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    записываться точки:
 
    ```bash
-   python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+   python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ./points.txt --show-waypoints
    ```
 
 4. Объедьте все доступные проезды. **Во время этого же объезда одновременно
@@ -114,14 +111,59 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    `way_a` и т. п.). Повторно проезжать весь склад после сохранения карты не
    требуется.
 
+   Пример траектории картографирования малого склада: со стоянки S2
+   проедьте влево и вправо к стенам зоны стоянки. После выхода со стоянки
+   поверните **сначала влево**, поднимитесь по западному проходу к T1,
+   затем посетите T2, проедьте проход B справа налево, проход A слева
+   направо, посетите T3, затем выезжайте из зоны отгрузки и поверните
+   влево по южному проходу. Переход между проходами B и A расположен
+   справа от линии первоначального подъёма по западному проходу.
+
+   ![Пример траектории картографирования малого склада](docs/warehouse/small_mapping_trajectory.png)
+
+   [Схема в формате SVG](docs/warehouse/small_mapping_trajectory.svg).
+
+   **Расстановка сохраняемых точек:** в каждом проходе A и B создайте
+   по четыре точки загрузки напротив стеллажей с номерами **1, 3, 5 и 7**.
+   Сами стеллажи остаются на месте: сохранять отдельную точку напротив
+   каждого из семи стеллажей не требуется.
+
+   ![Пример расстановки точек загрузки, выгрузки, стоянки и промежуточных точек](docs/warehouse/small_waypoint_layout.png)
+
+   [Схема расстановки точек в формате SVG](docs/warehouse/small_waypoint_layout.svg).
+
+   | Точки на схеме | Что сохранить в файл точек |
+   |---|---|
+   | A1–A4 | `A1`, `A2`, `A3`, `A4` в проходе A, напротив стеллажей 1, 3, 5 и 7 |
+   | B1–B4 | `B1`, `B2`, `B3`, `B4` в проходе B, напротив стеллажей 1, 3, 5 и 7 |
+   | T1–T3 | `target1`, `target2`, `target3` у рабочих зон |
+   | S1–S3 | **Три отдельные точки стоянки:** `S1`, `S2`, `S3` |
+   | P1–P12 | Пример промежуточных точек `P1`–`P12` в проходах и у поворотов для построения графа |
+
+   Нумерация P-точек идёт по порядку объезда: от `P1` у выхода со стоянки
+   влево к `P2`, затем вверх по западному проходу к T1 и T2,
+   через проходы B и A к южному проходу и T3. `P6` и `P7` расположены
+   ниже T1 и T2 соответственно; под центральной перегородкой точки нет.
+   Точки `P2`, `P3`, `P4` и `P5` выровнены в одну колонку слева.
+
+   Имена A, B, P, S вводите латинскими буквами; регистр должен совпадать
+   с именами в программе доставки. Не путайте точки загрузки `A1`–`A4`
+   и `B1`–`B4` с подписями физических стеллажей вида `A1_1` и `B2_7`.
+   Если программа использует начальную точку `parking`, дополнительно
+   сохраните это имя в том же месте, что и `S2`.
+   Координаты всех точек записывайте при объезде собственной SLAM-карты.
+   Параметр `--show-waypoints` в команде шага 3 включает зелёные метки
+   в Gazebo и RViz: отображаются точки из выбранного файла и новые точки
+   после сохранения. Без этого параметра запись работает, но метки скрыты.
+
 5. Когда карта построена и точки записаны, сохраните карту в отдельном
-   терминале. Будут созданы `~/warehouse_map.yaml` и
-   `~/warehouse_map.pgm`:
+   терминале. Будут созданы `./warehouse_map.yaml` и
+   `./warehouse_map.pgm`:
 
    ```bash
    source /opt/ros/humble/setup.bash
-   source ~/LW-2/ros2_ws/install/setup.bash
-   ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
+   source ./LW-2/ros2_ws/install/setup.bash
+   ros2 run nav2_map_server map_saver_cli -f ./warehouse_map \
      --ros-args -p use_sim_time:=true
    ```
 
@@ -136,11 +178,11 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    координат. Поэтому в RViz необходимо указать его начальную позу и направление.
 
    ```bash
-   ~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
+   ./LW-2/SCRIPTS/S2_startSim.sh points_file:=./points.txt
    ```
 
    ```bash
-   ~/LW-2/SCRIPTS/S3_startNav.sh ~/warehouse_map.yaml
+   ./LW-2/SCRIPTS/S3_startNav.sh ./warehouse_map.yaml
    ```
 
    После появления карты в RViz обязательно выберите **2D Pose Estimate** и
@@ -151,9 +193,9 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
 
    ```bash
    source /opt/ros/humble/setup.bash
-   source ~/LW-2/ros2_ws/install/setup.bash
-   python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
-     ~/points.txt target1 --speed 0.15 --trail 7
+   source ./LW-2/ros2_ws/install/setup.bash
+   python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
+     ./points.txt target1 --speed 0.15 --trail 7
    ```
 
    В каждом новом терминале сначала подключите оба файла `setup.bash`. Без
@@ -168,12 +210,12 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
 
    ```bash
    source /opt/ros/humble/setup.bash
-   source ~/LW-2/ros2_ws/install/setup.bash
-   python3 ~/LW-2/SCRIPTS/mqtt_driver.py
+   source ./LW-2/ros2_ws/install/setup.bash
+   python3 ./LW-2/SCRIPTS/mqtt_driver.py
    ```
 
 Перед любой отправкой проверьте, что Nav2 активен, начальная поза задана и в
-`~/points.txt` есть запрошенное имя. Карта и точки создаются за один общий
+`./points.txt` есть запрошенное имя. Карта и точки создаются за один общий
 объезд, а затем загружаются для локализации и автономного движения.
 
 ## 1. Запуск симуляции
@@ -181,7 +223,6 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
 Запуск:
 
 ```bash
-chmod +x ./LW-2/SCRIPTS/S2_startSim.sh
 ./LW-2/SCRIPTS/S2_startSim.sh
 ```
 
@@ -200,10 +241,10 @@ chmod +x ./LW-2/SCRIPTS/S2_startSim.sh
 | `automotive` | Склад автозавода 72 × 48 м | `warehouse_automotive.yaml` |
 
 ```bash
-~/LW-2/SCRIPTS/S2_startSim.sh world:=large
-~/LW-2/SCRIPTS/S2_startSim.sh world:=small
-~/LW-2/SCRIPTS/S2_startSim.sh world:=stage4
-~/LW-2/SCRIPTS/S2_startSim.sh world:=automotive
+./LW-2/SCRIPTS/S2_startSim.sh world:=large
+./LW-2/SCRIPTS/S2_startSim.sh world:=small
+./LW-2/SCRIPTS/S2_startSim.sh world:=stage4
+./LW-2/SCRIPTS/S2_startSim.sh world:=automotive
 ```
 
 `small` — значение по умолчанию. Для большого варианта явно передайте
@@ -215,22 +256,23 @@ chmod +x ./LW-2/SCRIPTS/S2_startSim.sh
 `S2_startSim.sh mode:=mapping`. Для автозавода:
 
 ```bash
-~/LW-2/SCRIPTS/S2_startMapping.sh world:=automotive
+./LW-2/SCRIPTS/S2_startMapping.sh world:=automotive
 ```
 
 `mode:=mapping` показывает лучи лидара и скрывает сохранённые метки;
 `mode:=navigation` (по умолчанию) скрывает лучи и показывает метки.
 Сам `/scan` работает в обоих режимах. `lidar_visual:=true|false` и
 `show_waypoints:=true|false` явно переопределяют отображение.
-Во время ручной записи точки сохраняются в файл, но не рисуются;
-для их показа в teleop есть `--show-waypoints`.
+Для показа зелёных меток при ручной записи запускайте teleop с
+`--show-waypoints`, как в примерах ниже. Без параметра точки сохраняются
+в файл, но не рисуются.
 
 Совместный запуск Gazebo, Nav2 и JSON MQTT-драйвера:
 
 ```bash
-~/LW-2/SCRIPTS/start_tb3.sh ~/warehouse_map.yaml --points-file ~/points.txt
-~/LW-2/SCRIPTS/start_tb3.sh ~/automotive_map.yaml \
-  --world automotive --points-file ~/points_automotive.txt
+./LW-2/SCRIPTS/start_tb3.sh ./warehouse_map.yaml --points-file ./points.txt
+./LW-2/SCRIPTS/start_tb3.sh ./automotive_map.yaml \
+  --world automotive --points-file ./points_automotive.txt
 ```
 
 Без пути карты этот скрипт использует эталонную карту выбранного мира;
@@ -250,7 +292,7 @@ A2 и B2 двойные: по два ряда коробок.
 Между севером и югом доступны западный и восточный обходы; центрального сквозного
 проезда нет. Южный поперечный проход — 1,35 м, северный — минимум 1,1 м.
 
-![План склада](docs/warehouse/warehouse_plan.svg)
+![План малого склада](docs/warehouse/small_warehouse_plan.svg)
 
 [Размеры, точки, маршруты, эталонная карта и расширение для группы](docs/warehouse/README_warehouse.md).
 План и инструкция малого варианта: [малый склад](docs/warehouse/SMALL.md).
@@ -258,21 +300,22 @@ A2 и B2 двойные: по два ряда коробок.
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd ~/LW-2/ros2_ws
+cd ./LW-2/ros2_ws
 colcon build --symlink-install --packages-select turtlebot3_gazebo
+cd "$HOME"
 ```
 
 Обычный и headless-запуск Burger (модель по умолчанию):
 
 ```bash
-~/LW-2/SCRIPTS/S2_startSim.sh
-~/LW-2/SCRIPTS/S2_startSim.sh gui:=false
+./LW-2/SCRIPTS/S2_startSim.sh
+./LW-2/SCRIPTS/S2_startSim.sh gui:=false
 ```
 
 В режиме навигации лучи скрыты по умолчанию. Чтобы явно показать их:
 
 ```bash
-~/LW-2/SCRIPTS/S2_startSim.sh lidar_visual:=true
+./LW-2/SCRIPTS/S2_startSim.sh lidar_visual:=true
 ```
 
 Burger — модель по умолчанию во всех скриптах. Не смешивайте модели между
@@ -284,14 +327,14 @@ Burger — модель по умолчанию во всех скриптах. 
 ## 2. Ручное управление
 
 ```bash
-python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ./points.txt --show-waypoints
 ```
 
 Для ручного движения с лидарной защитой используйте флаг
 `--collision-monitor`:
 
 ```bash
-python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py --collision-monitor ~/points.txt
+python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py --collision-monitor ./points.txt --show-waypoints
 ```
 
 Скрипт запускает отдельный `nav2_collision_monitor` и направляет команды по
@@ -307,7 +350,7 @@ python3 ~/LW-2/SCRIPTS/teleop_keyboard_save.py --collision-monitor ~/points.txt
 системе координат `map`, которую Nav2 использует для целей.
 
 ```bash
-TURTLEBOT3_MODEL=burger python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+TURTLEBOT3_MODEL=burger python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ./points.txt --show-waypoints
 ```
 
 Клавиши управления:
@@ -320,11 +363,12 @@ TURTLEBOT3_MODEL=burger python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.
 | `G` | остановиться и сохранить текущую позу под заданным именем |
 | `Ctrl+C` | завершить программу |
 
-Клавиши в программе обрабатываются в нижнем регистре. По умолчанию точки
-добавляются в `~/points.txt`; путь можно передать явно:
+Клавиши в программе обрабатываются в нижнем регистре. Если путь не указан,
+точки добавляются в файл `points.txt` в домашней директории. В примерах
+путь задан явно как `./points.txt`:
 
 ```bash
-python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ~/points.txt
+python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ./points.txt --show-waypoints
 ```
 
 Формат строки в файле:
@@ -347,7 +391,7 @@ ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
 С помощью `teleop_keyboard_save.py` объедьте всё помещение. В RViz должны
 отобразиться стены, препятствия и доступные проходы. Во время этого же объезда
 останавливайтесь в нужных местах, нажимайте `G` и сохраняйте именованные точки
-в `~/points.txt`. Таким образом, карта и точки создаются одновременно — второй
+в `./points.txt`. Таким образом, карта и точки создаются одновременно — второй
 объезд после запуска Nav2 не нужен.
 
 Рекомендуемый набор имён:
@@ -360,11 +404,11 @@ ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
 
 ```bash
 source ./LW-2/ros2_ws/install/setup.bash
-ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
+ros2 run nav2_map_server map_saver_cli -f ./warehouse_map \
   --ros-args -p use_sim_time:=true
 ```
 
-Будут созданы `~/warehouse_map.pgm` и `~/warehouse_map.yaml`. После успешного
+Будут созданы `./warehouse_map.pgm` и `./warehouse_map.yaml`. После успешного
 сохранения остановите через `Ctrl+C` Cartographer, ручное управление и
 симуляцию; закройте RViz и Gazebo.
 
@@ -373,7 +417,7 @@ ros2 run nav2_map_server map_saver_cli -f ~/warehouse_map \
 Запустите сцену заново и укажите созданный на предыдущем этапе файл:
 
 ```bash
-~/LW-2/SCRIPTS/S2_startSim.sh points_file:=$HOME/points.txt
+./LW-2/SCRIPTS/S2_startSim.sh points_file:=./points.txt
 ```
 
 `S2_startSim.sh` передаёт путь загрузчику меток. Точки с сохранёнными
@@ -393,7 +437,7 @@ MQTT-драйвер добавляется только после провер�
 ### Терминал 2 — Navigation2
 
 ```bash
-~/LW-2/SCRIPTS/S3_startNav.sh ~/warehouse_map.yaml
+./LW-2/SCRIPTS/S3_startNav.sh ./warehouse_map.yaml
 ```
 
 После появления карты в RViz обязательно задайте начальную позицию робота
@@ -407,15 +451,15 @@ MQTT-драйвер добавляется только после провер�
 
 ```bash
 source /opt/ros/humble/setup.bash
-source ~/LW-2/ros2_ws/install/setup.bash
-python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orientation
+source ./LW-2/ros2_ws/install/setup.bash
+python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt target1 --ignore-orientation
 ```
 
 Позиционные параметры команды:
 
 | Параметр | Значение в примере | Описание |
 |---|---|---|
-| `points_file` | `~/points.txt` | путь к файлу сохранённых точек |
+| `points_file` | `./points.txt` | путь к файлу сохранённых точек |
 | `points` | `target1` | одно или несколько имён точек для последовательного маршрута |
 
 Дополнительные параметры:
@@ -433,15 +477,15 @@ python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orien
 Например, для скорости `0.15` м/с:
 
 ```bash
-python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
-  ~/points.txt target1 --ignore-orientation --speed 0.15
+python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
+  ./points.txt target1 --ignore-orientation --speed 0.15
 ```
 
 Для последовательного маршрута перечислите несколько имён точек:
 
 ```bash
-python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
-  ~/points.txt parking way_a target1 --ignore-orientation --speed 0.15
+python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
+  ./points.txt parking way_a target1 --ignore-orientation --speed 0.15
 ```
 
 Перед первым использованием этого режима перезапустите Nav2, чтобы он загрузил
@@ -450,7 +494,7 @@ python3 ~/LW-2/SCRIPTS/navigate_waypoints.py \
 Флаг `--trail` можно объединять с другими параметрами:
 
 ```bash
-python3 ~/LW-2/SCRIPTS/navigate_waypoints.py ~/points.txt target1 --ignore-orientation --trail
+python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt target1 --ignore-orientation --trail
 ```
 
 Чтобы выбрать цвет следа, передайте номер от 1 до 21, например `--trail 7`.
@@ -482,10 +526,12 @@ Nav2 не сможет построить или выполнить маршру
 
 В проекте по умолчанию используются вариант 21, пространство `space_v21` и робот `amr1_v21`.
 
-Драйвер по умолчанию читает `~/points.txt`, независимо от текущей директории.
+Драйвер по умолчанию читает файл `points.txt` в домашней директории,
+независимо от текущей директории. В примерах эта директория выбрана
+командой `cd "$HOME"`.
 
 ```bash
-cd ~
+cd "$HOME"
 source /opt/ros/humble/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
 python3 ./LW-2/SCRIPTS/mqtt_driver.py
@@ -611,7 +657,7 @@ python3 ./LW-2/SCRIPTS/sent_one_task.py parking --orientation
 ```
 
 Скрипт отправляет одно задание. Последний аргумент — существующее имя точки из
-`~/points.txt`; например, замените `parking` на `target1`.
+`./points.txt`; например, замените `parking` на `target1`.
 
 Последовательный маршрут с ожиданием статуса `0` после каждой точки:
 

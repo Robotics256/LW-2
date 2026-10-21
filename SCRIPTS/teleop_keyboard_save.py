@@ -311,6 +311,12 @@ def main(points_file, collision_monitor=False, show_waypoints=False):
     control_angular_velocity = 0.0
 
     try:
+        print(f"Файл точек: {os.path.abspath(os.path.expanduser(points_file))}")
+        if show_waypoints:
+            print('Зелёные метки точек включены (Gazebo и RViz).')
+        else:
+            print('Метки точек скрыты. Для показа запустите с --show-waypoints; '
+                  'точки по-прежнему сохраняются в файл.')
         print(msg)
         while (1):
             rclpy.spin_once(node, timeout_sec=0.1)  # Receives TF and /clock updates.
