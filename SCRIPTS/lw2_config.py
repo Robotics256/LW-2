@@ -1,6 +1,7 @@
 """Load the shared user configuration for LW-2 scripts."""
 
 import json
+import math
 import os
 from pathlib import Path
 
@@ -55,6 +56,21 @@ def load_cargo_config(path=DEFAULT_CONFIG_FILE):
                 f"Параметр 'cargo.{option}' в {config_path} должен быть true или false"
             )
         result[option] = value
+    return result
+
+
+def load_teleop_config(path=DEFAULT_CONFIG_FILE):
+    """Maximum absolute keyboard commands, in m/s and rad/s."""
+    config = load_project_config(path).get('teleop')
+    if not isinstance(config, dict):
+        raise ValueError(f"Раздел 'teleop' отсутствует в {path}")
+    result = {}
+    for name in ('max_linear_speed', 'max_angular_speed'):
+        value = config.get(name)
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or value < 0):
+            raise ValueError(f'teleop.{name} должен быть конечным неотрицательным числом')
+        result[name] = float(value)
     return result
 
 

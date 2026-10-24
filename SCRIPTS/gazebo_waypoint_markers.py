@@ -79,6 +79,11 @@ class GazeboWaypointPublisher:
 
     def robot_position(self):
         """Read the robot model position in the Gazebo world frame."""
+        sample = self.robot_pose_sample()
+        return sample[0] if sample is not None else None
+
+    def robot_pose_sample(self):
+        """Return world position and simulation timestamp from one service reply."""
         if not self._state_client.wait_for_service(timeout_sec=1.0):
             self._node.get_logger().warning(
                 'Gazebo service /gazebo/get_entity_state is not available.')
@@ -94,4 +99,4 @@ class GazeboWaypointPublisher:
             self._node.get_logger().warning(
                 f"Gazebo model '{self._robot_name}' was not found.")
             return None
-        return response.state.pose.position
+        return response.state.pose.position, response.header.stamp

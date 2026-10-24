@@ -23,10 +23,6 @@ Panels:
     Splitter Ratio: 0.3333333432674408
   - Class: nav2_rviz_plugins/Navigation 2
     Name: Navigation 2
-  - Class: nav2_rviz_plugins/Selector
-    Name: Selector
-  - Class: nav2_rviz_plugins/Docking
-    Name: Docking
 Visualization Manager:
   Class: ""
   Displays:
@@ -514,12 +510,12 @@ Visualization Manager:
       Name: Realsense
     - Class: rviz_default_plugins/MarkerArray
       Enabled: true
-      Name: MarkerArray
+      Name: Saved Waypoints
       Namespaces:
         {}
       Topic:
-        Depth: 5
-        Durability Policy: Volatile
+        Depth: 1
+        Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /waypoints
@@ -537,6 +533,7 @@ Visualization Manager:
     - Class: rviz_default_plugins/Measure
       Line color: 128; 128; 0
     - Class: rviz_default_plugins/SetInitialPose
+      Name: 2D Pose Estimate
       Covariance x: 0.25
       Covariance y: 0.25
       Covariance yaw: 0.06853891909122467

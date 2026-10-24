@@ -29,7 +29,6 @@ class WaypointMarkerPublisher:
     def publish(self, waypoints):
         """Publish ``{'name': str, 'pose': PoseStamped}`` waypoint dictionaries."""
         markers = MarkerArray()
-        stamp = self._node.get_clock().now().to_msg()
         clear = Marker()
         clear.action = Marker.DELETEALL
         markers.markers.append(clear)
@@ -39,7 +38,7 @@ class WaypointMarkerPublisher:
             pose = waypoint['pose'].pose
             marker = Marker()
             marker.header.frame_id = 'map'
-            marker.header.stamp = stamp
+            # Saved map coordinates are timeless, including after a /clock reset.
             # RViz groups markers by ``ns`` in its display tree.  Using the
             # saved name here makes a point named, for example, "loading",
             # appear as "loading" rather than ``saved_waypoints/3``.

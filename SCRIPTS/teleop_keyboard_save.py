@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import math
 import os
 import select
-import statistics
 import subprocess
 import sys
 import time
@@ -40,18 +38,19 @@ def bootstrap_ros_environment():
     )
 
 
-bootstrap_ros_environment()
+if __name__ == '__main__':
+    bootstrap_ros_environment()
 
 from geometry_msgs.msg import Twist
 from ament_index_python.packages import get_package_prefix
 import rclpy
-from rclpy.duration import Duration
 from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile
-from rclpy.time import Time
-from tf2_ros import Buffer, TransformException, TransformListener
+from tf2_ros import Buffer, TransformListener
 from gazebo_waypoint_markers import GazeboWaypointPublisher
 from waypoint_markers import WaypointMarkerPublisher
+from waypoint_capture import capture_waypoint_pose, WaypointCaptureError
+from lw2_config import DEFAULT_CONFIG_FILE, load_teleop_config
 
 if os.name == 'nt':
     import msvcrt
@@ -68,7 +67,7 @@ WAFFLE_MAX_ANG_VEL = 1.82
 LIN_VEL_STEP_SIZE = 0.01
 ANG_VEL_STEP_SIZE = 0.1
 
-TURTLEBOT3_MODEL = os.environ['TURTLEBOT3_MODEL']
+TURTLEBOT3_MODEL = os.environ.get('TURTLEBOT3_MODEL', 'burger')
 
 msg = """
 Control Your TurtleBot3!
@@ -78,8 +77,8 @@ Moving around:
    a    s    d
         x
 
-w/x : increase/decrease linear velocity (Burger : ~ 0.22, Waffle and Waffle Pi : ~ 0.6)
-a/d : increase/decrease angular velocity (Burger : ~ 2.84, Waffle and Waffle Pi : ~ 1.82)
+w/x : increase/decrease linear velocity (limits from lw2_config.json)
+a/d : increase/decrease angular velocity (limits from lw2_config.json)
 
 space key, s : force stop
 g : stop end save point in points file
@@ -201,32 +200,16 @@ def constrain(input_vel, low_bound, high_bound):
     return input_vel
 
 
-def check_linear_limit_velocity(velocity):
-    if TURTLEBOT3_MODEL == 'burger':
-        return constrain(velocity, -BURGER_MAX_LIN_VEL, BURGER_MAX_LIN_VEL)
-    else:
-        return constrain(velocity, -WAFFLE_MAX_LIN_VEL, WAFFLE_MAX_LIN_VEL)
+def check_linear_limit_velocity(velocity, maximum):
+    model_limit = BURGER_MAX_LIN_VEL if TURTLEBOT3_MODEL == 'burger' else WAFFLE_MAX_LIN_VEL
+    limit = min(maximum, model_limit)
+    return constrain(velocity, -limit, limit)
 
 
-def check_angular_limit_velocity(velocity):
-    if TURTLEBOT3_MODEL == 'burger':
-        return constrain(velocity, -BURGER_MAX_ANG_VEL, BURGER_MAX_ANG_VEL)
-    else:
-        return constrain(velocity, -WAFFLE_MAX_ANG_VEL, WAFFLE_MAX_ANG_VEL)
-
-
-def robot_pose(tf_buffer, node, frame):
-    """Return the latest ``frame -> base_footprint`` transform, if available."""
-    # Gazebo may publish the first map transform a few seconds after Nav2 or
-    # Cartographer starts. Keep G reliable without forcing a second key press.
-    deadline = time.monotonic() + 5.0
-    while time.monotonic() < deadline:
-        try:
-            return tf_buffer.lookup_transform(
-                frame, 'base_footprint', Time(), timeout=Duration(seconds=0.2)).transform
-        except TransformException:
-            rclpy.spin_once(node, timeout_sec=0.05)
-    return None
+def check_angular_limit_velocity(velocity, maximum):
+    model_limit = BURGER_MAX_ANG_VEL if TURTLEBOT3_MODEL == 'burger' else WAFFLE_MAX_ANG_VEL
+    limit = min(maximum, model_limit)
+    return constrain(velocity, -limit, limit)
 
 
 def load_waypoints(file_path):
@@ -260,23 +243,8 @@ def load_waypoints(file_path):
     return waypoints
 
 
-def map_to_gazebo_offset(waypoints):
-    """Return a robust fixed map/world translation from saved paired points."""
-    paired = [waypoint for waypoint in waypoints
-              if waypoint.get('gazebo_position') is not None]
-    if len(paired) < 3:
-        return None
-    return (
-        statistics.median(
-            waypoint['pose'].pose.position.x - waypoint['gazebo_position'].x
-            for waypoint in paired),
-        statistics.median(
-            waypoint['pose'].pose.position.y - waypoint['gazebo_position'].y
-            for waypoint in paired),
-    )
-
-
-def main(points_file, collision_monitor=False, show_waypoints=False):
+def main(points_file, collision_monitor=False, show_waypoints=False, config_file=DEFAULT_CONFIG_FILE):
+    limits = load_teleop_config(config_file)
     settings = None
     if os.name != 'nt':
         settings = termios.tcgetattr(sys.stdin)
@@ -318,28 +286,31 @@ def main(points_file, collision_monitor=False, show_waypoints=False):
             print('Метки точек скрыты. Для показа запустите с --show-waypoints; '
                   'точки по-прежнему сохраняются в файл.')
         print(msg)
+        print(f"Лимиты teleop ({config_file}): "
+              f"{check_linear_limit_velocity(float('inf'), limits['max_linear_speed']):g} м/с, "
+              f"{check_angular_limit_velocity(float('inf'), limits['max_angular_speed']):g} рад/с")
         while (1):
             rclpy.spin_once(node, timeout_sec=0.1)  # Receives TF and /clock updates.
             key = get_key(settings)
             key = key.translate(RUSSIAN_TELEOP_KEYS)
             if key == 'w':
                 target_linear_velocity =\
-                    check_linear_limit_velocity(target_linear_velocity + LIN_VEL_STEP_SIZE)
+                    check_linear_limit_velocity(target_linear_velocity + LIN_VEL_STEP_SIZE, limits['max_linear_speed'])
                 status = status + 1
                 print_vels(target_linear_velocity, target_angular_velocity)
             elif key == 'x':
                 target_linear_velocity =\
-                    check_linear_limit_velocity(target_linear_velocity - LIN_VEL_STEP_SIZE)
+                    check_linear_limit_velocity(target_linear_velocity - LIN_VEL_STEP_SIZE, limits['max_linear_speed'])
                 status = status + 1
                 print_vels(target_linear_velocity, target_angular_velocity)
             elif key == 'a':
                 target_angular_velocity =\
-                    check_angular_limit_velocity(target_angular_velocity + ANG_VEL_STEP_SIZE)
+                    check_angular_limit_velocity(target_angular_velocity + ANG_VEL_STEP_SIZE, limits['max_angular_speed'])
                 status = status + 1
                 print_vels(target_linear_velocity, target_angular_velocity)
             elif key == 'd':
                 target_angular_velocity =\
-                    check_angular_limit_velocity(target_angular_velocity - ANG_VEL_STEP_SIZE)
+                    check_angular_limit_velocity(target_angular_velocity - ANG_VEL_STEP_SIZE, limits['max_angular_speed'])
                 status = status + 1
                 print_vels(target_linear_velocity, target_angular_velocity)
             elif key == ' ' or key == 's':
@@ -362,58 +333,45 @@ def main(points_file, collision_monitor=False, show_waypoints=False):
                 while time.monotonic() < settle_until:
                     rclpy.spin_once(node, timeout_sec=0.05)
 
-                pose = robot_pose(tf_buffer, node, 'map')
-                if pose is not None:
-                    gazebo_pose = gazebo_marker_publisher.robot_position()
-                    point_name = input("Input the goal name end pres [Enter]: ").strip()
-                    if point_name:
-                        offset = map_to_gazebo_offset(saved_waypoints)
-                        if gazebo_pose is not None and offset is not None:
-                            mismatch = math.hypot(
-                                pose.translation.x - (gazebo_pose.x + offset[0]),
-                                pose.translation.y - (gazebo_pose.y + offset[1]),
-                            )
-                            if mismatch > 0.15:
-                                print(
-                                    f"Point '{point_name}' was not saved: map/Gazebo "
-                                    f"positions differ by {mismatch:.2f} m. "
-                                    'Re-localize in RViz and save it again.'
-                                )
-                                continue
-                        # Nav2 receives goals in `map`, so record the same frame.
-                        with open(os.path.expanduser(points_file), 'a') as f:
-                            line = (
-                                f"{point_name}, {pose.translation.x}, {pose.translation.y}, "
-                                f"{pose.rotation.z}, {pose.rotation.w}")
-                            if gazebo_pose is not None:
-                                line += f", {gazebo_pose.x}, {gazebo_pose.y}"
-                            f.write(line + '\n')
-                        from geometry_msgs.msg import PoseStamped
-                        waypoint_pose = PoseStamped()
-                        waypoint_pose.header.frame_id = 'map'
-                        waypoint_pose.pose.position.x = pose.translation.x
-                        waypoint_pose.pose.position.y = pose.translation.y
-                        waypoint_pose.pose.orientation.z = pose.rotation.z
-                        waypoint_pose.pose.orientation.w = pose.rotation.w
-                        waypoint = {'name': point_name, 'pose': waypoint_pose}
+                point_name = input("Имя точки и [Enter]: ").strip()
+                if point_name:
+                    try:
+                        pose, gazebo_pose = capture_waypoint_pose(node, tf_buffer, gazebo_marker_publisher)
+                    except WaypointCaptureError as error:
+                        print(error)
+                        continue
+                    # Nav2 receives goals in `map`, so record the same frame.
+                    with open(os.path.expanduser(points_file), 'a') as f:
+                        line = (
+                            f"{point_name}, {pose.translation.x}, {pose.translation.y}, "
+                            f"{pose.rotation.z}, {pose.rotation.w}")
                         if gazebo_pose is not None:
-                            waypoint['gazebo_position'] = gazebo_pose
-                            print(
-                                f"Gazebo position for '{point_name}': "
-                                f"{gazebo_pose.x}, {gazebo_pose.y}")
-                        else:
-                            print(
-                                'Gazebo model pose is unavailable; no Gazebo marker will be '
-                                'created. Restart S2_startSim.sh and teleop.')
-                        saved_waypoints.append(waypoint)
-                        if show_waypoints:
-                            marker_publisher.publish(saved_waypoints)
-                            gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
-                        print(f"Saved map waypoint '{point_name}':", pose.translation.x, pose.translation.y)
+                            line += f", {gazebo_pose.x}, {gazebo_pose.y}"
+                        f.write(line + '\n')
+                    from geometry_msgs.msg import PoseStamped
+                    waypoint_pose = PoseStamped()
+                    waypoint_pose.header.frame_id = 'map'
+                    waypoint_pose.pose.position.x = pose.translation.x
+                    waypoint_pose.pose.position.y = pose.translation.y
+                    waypoint_pose.pose.orientation.z = pose.rotation.z
+                    waypoint_pose.pose.orientation.w = pose.rotation.w
+                    waypoint = {'name': point_name, 'pose': waypoint_pose}
+                    if gazebo_pose is not None:
+                        waypoint['gazebo_position'] = gazebo_pose
+                        print(
+                            f"Gazebo position for '{point_name}': "
+                            f"{gazebo_pose.x}, {gazebo_pose.y}")
                     else:
-                        print("Point name don`t enter.")
+                        print(
+                            'Gazebo model pose is unavailable; no Gazebo marker will be '
+                            'created. Restart S2_startSim.sh and teleop.')
+                    saved_waypoints.append(waypoint)
+                    if show_waypoints:
+                        marker_publisher.publish(saved_waypoints)
+                        gazebo_marker_publisher.publish(saved_waypoints, tf_buffer)
+                    print(f"Saved map waypoint '{point_name}':", pose.translation.x, pose.translation.y)
                 else:
-                    print("Map pose is unavailable. Start Cartographer or Nav2 and set 2D Pose Estimate first.")
+                    print('Имя точки не введено.')
             else:
                 if (key == '\x03'):
                     break
@@ -458,5 +416,8 @@ if __name__ == '__main__':
                         help='Filter teleop velocities through lidar-based slowdown and stop zones.')
     parser.add_argument('--show-waypoints', action='store_true',
                         help='Показывать метки записанных точек (при картографировании по умолчанию скрыты).')
+    parser.add_argument('--config', default=str(DEFAULT_CONFIG_FILE),
+                        help='JSON-конфиг с лимитами скорости teleop')
     arguments = parser.parse_args()
-    main(os.path.expanduser(arguments.points_file), arguments.collision_monitor, arguments.show_waypoints)
+    main(os.path.expanduser(arguments.points_file), arguments.collision_monitor,
+         arguments.show_waypoints, arguments.config)

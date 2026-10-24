@@ -1,4 +1,8 @@
 {
+  "teleop": {
+    "max_linear_speed": 0.15,
+    "max_angular_speed": 0.8
+  },
   "cargo": {
     "floor_markers_enabled": true,
     "robot_color_enabled": true
