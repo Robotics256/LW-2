@@ -111,7 +111,7 @@ class RosDriverTests(unittest.TestCase):
         self.assertEqual(self.driver.tasks.history[1]["Status"], 2)
         self.assertEqual(self.driver.tasks.history[2]["Status"], 0)
         self.assertGreaterEqual(self.cancels, 1)
-        self.assertIn("position_only_navigation.xml", self.received[0].behavior_tree)
+        self.assertIn("proximity_navigation.xml", self.received[0].behavior_tree)
         self.assertTrue(any("StatusInfo" in item["Module"]["Data"] for item in self.responses))
 
         self.complete.set()

@@ -6,8 +6,9 @@ PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 WORLD=small
 MAP_FILE=""
 POINTS_FILE="${TB3_POINTS_FILE:-${HOME}/points.txt}"
-NAVIGATION_MODE=position
+NAVIGATION_MODE="${TB3_NAVIGATION_MODE:-}"
 GUI=true
+TRAIL_ARGUMENTS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --world|--points-file|--mode)
@@ -18,10 +19,16 @@ while [[ $# -gt 0 ]]; do
         --mode) NAVIGATION_MODE="$2" ;;
       esac
       shift 2 ;;
+    --trail)
+      [[ $# -ge 2 ]] || { echo "После --trail нужен номер варианта 1–21" >&2; exit 2; }
+      [[ "$2" =~ ^[0-9]+$ && ${#2} -le 2 ]] || { echo "Номер варианта должен быть от 1 до 21" >&2; exit 2; }
+      (( 10#$2 >= 1 && 10#$2 <= 21 )) || { echo "Номер варианта должен быть от 1 до 21" >&2; exit 2; }
+      TRAIL_ARGUMENTS=(--trail "$2"); shift 2 ;;
+    --no-trail) TRAIL_ARGUMENTS=(--no-trail); shift ;;
     --orientation) NAVIGATION_MODE=orientation; shift ;;
     --headless) GUI=false; shift ;;
     -h|--help)
-      echo "Использование: $0 [карта.yaml] [--world small|large|automotive|stage4] [--points-file путь] [--mode position|orientation|proximity] [--headless]"
+      echo "Использование: $0 [карта.yaml] [--world small|large|automotive|stage4] [--points-file путь] [--mode position|orientation|proximity] [--headless] [--trail НОМЕР_ВАРИАНТА | --no-trail]"
       exit 0 ;;
     -*) echo "Неизвестный параметр: $1" >&2; exit 2 ;;
     *) [[ -z "${MAP_FILE}" ]] || { echo "Лишний аргумент: $1" >&2; exit 2; }
@@ -29,6 +36,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case "${WORLD}" in small|large|automotive|stage4) ;; *) echo "Неверный мир: ${WORLD}" >&2; exit 2 ;; esac
+if [[ -z "${NAVIGATION_MODE}" ]]; then
+  NAVIGATION_MODE="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from lw2_config import load_navigation_config; print(load_navigation_config()["default_mode"])' "${SCRIPT_DIR}")"
+fi
 case "${NAVIGATION_MODE}" in position|orientation|proximity) ;; *) echo "Неверный режим: ${NAVIGATION_MODE}" >&2; exit 2 ;; esac
 export TURTLEBOT3_MODEL="${TURTLEBOT3_MODEL:-burger}"
 export TB3_POINTS_FILE="${POINTS_FILE}"
@@ -66,6 +76,6 @@ sleep 8
 "${SCRIPT_DIR}/S3_startNav.sh" "${MAP_FILE}" --mode "${NAVIGATION_MODE}" use_rviz:="${GUI}" &
 PIDS+=($!)
 sleep 3
-python3 "${SCRIPT_DIR}/mqtt_driver.py" --points-file "${POINTS_FILE}" --mode "${NAVIGATION_MODE}" &
+python3 "${SCRIPT_DIR}/mqtt_driver.py" --points-file "${POINTS_FILE}" --mode "${NAVIGATION_MODE}" "${TRAIL_ARGUMENTS[@]}" &
 PIDS+=($!)
 wait -n "${PIDS[@]}"

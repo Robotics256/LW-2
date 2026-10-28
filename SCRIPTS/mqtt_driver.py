@@ -25,7 +25,7 @@ from lw2_config import DEFAULT_CONFIG_FILE, load_cargo_config
 from lw2_config import (WORKSPACE, MODULE_NAME, MODULE_TYPE, MQTT_BROKER, MQTT_PORT,
                         MQTT_COMMAND_TOPIC, MQTT_STATUS_TOPIC, configure_mqtt_auth)
 from mqtt_tasks import JsonTasks
-from navigation_modes import add_mode_arguments, add_trail_arguments, behavior_tree, validate_trail
+from navigation_modes import DEFAULT_MODE, add_mode_arguments, add_trail_arguments, behavior_tree, validate_trail
 from navigation_stop import NavigationStop
 from waypoint_file import load_waypoints
 from waypoint_markers import WaypointMarkerPublisher
@@ -37,7 +37,7 @@ MQTT_PUBLISH_TOPIC = MQTT_STATUS_TOPIC
 
 
 class MqttNavNode(Node):
-    def __init__(self, navigation_mode="position", trail_color_number=None,
+    def __init__(self, navigation_mode=DEFAULT_MODE, trail_color_number=None,
                  cargo_config=None, config_file=DEFAULT_CONFIG_FILE,
                  points_file=WAYPOINTS_FILE, history_size=100, max_tasks=100):
         super().__init__("mqtt_nav_node", parameter_overrides=[Parameter("use_sim_time", value=True)])

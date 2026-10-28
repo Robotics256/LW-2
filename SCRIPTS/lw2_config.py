@@ -103,3 +103,26 @@ def load_trail_color(color_number, path=DEFAULT_CONFIG_FILE):
     ):
         raise ValueError("Цвет следа должен быть списком из трёх чисел от 0 до 1")
     return tuple(color)
+
+
+def load_navigation_config(path=DEFAULT_CONFIG_FILE):
+    """Радиус прибытия в режиме proximity, в метрах."""
+    navigation = load_project_config(path).get("navigation")
+    if not isinstance(navigation, dict):
+        raise ValueError(f"Раздел 'navigation' отсутствует в {path}")
+    mode = navigation.get("default_mode", "proximity")
+    if not isinstance(mode, str) or mode not in ("orientation", "position", "proximity"):
+        raise ValueError("navigation.default_mode должен быть orientation, position или proximity")
+    radius = navigation.get("proximity_radius")
+    if (isinstance(radius, bool) or not isinstance(radius, (int, float))
+            or not math.isfinite(radius) or radius <= 0):
+        raise ValueError("navigation.proximity_radius должен быть конечным числом больше 0")
+    return {"default_mode": mode, "proximity_radius": float(radius)}
+
+
+def apply_navigation_config(params, path=DEFAULT_CONFIG_FILE):
+    """Перенести радиус из JSON во временные параметры Nav2 перед запуском."""
+    config = load_navigation_config(path)
+    checker = params["controller_server"]["ros__parameters"]["proximity_goal_checker"]
+    checker["xy_goal_tolerance"] = config["proximity_radius"]
+    return config

@@ -8,7 +8,7 @@ from collections import OrderedDict
 from copy import deepcopy
 import time
 
-from navigation_modes import MODES
+from navigation_modes import DEFAULT_MODE, MODES
 
 
 TASK_TYPES = {"point": "Point", "upload": "Upload", "load": "Upload",
@@ -28,7 +28,7 @@ def task_id(value):
 
 
 class JsonTasks:
-    def __init__(self, publish, default_mode="position", history_size=100, max_tasks=100):
+    def __init__(self, publish, default_mode=DEFAULT_MODE, history_size=100, max_tasks=100):
         if default_mode not in MODES or history_size < 1 or max_tasks < 1:
             raise ValueError("Invalid mode or task storage size")
         self.publish = publish

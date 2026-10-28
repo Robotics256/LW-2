@@ -1,4 +1,8 @@
 {
+  "navigation": {
+    "default_mode": "proximity",
+    "proximity_radius": 0.1
+  },
   "teleop": {
     "max_linear_speed": 0.15,
     "max_angular_speed": 0.8

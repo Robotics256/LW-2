@@ -14,7 +14,8 @@ from lw2_config import (WORKSPACE, MODULE_NAME, MODULE_TYPE, MQTT_BROKER, MQTT_P
 MQTT_TOPIC = MQTT_COMMAND_TOPIC
 
 
-def build_cargo_payload(action, task_id=None):
+def build_cargo_payload(action, task_id=None, *, module_name=MODULE_NAME,
+                        module_type=MODULE_TYPE):
     """Build the same JSON task envelope used by the navigation scripts."""
     normalized = action.strip().lower()
     task_types = {
@@ -30,8 +31,8 @@ def build_cargo_payload(action, task_id=None):
         task_id = random.randint(1, 100000)
     payload = {
         "Module": {
-            "Name": MODULE_NAME,
-            "Type": MODULE_TYPE,
+            "Name": module_name,
+            "Type": module_type,
             "UID": random.randint(1, 100000),
             "Time": int(time.time() * 1000),
             "Data": {

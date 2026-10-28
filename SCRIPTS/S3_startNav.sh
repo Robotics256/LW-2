@@ -15,7 +15,7 @@ fi
 
 MAP_FILE="$1"
 shift
-NAVIGATION_MODE="${TB3_NAVIGATION_MODE:-position}"
+NAVIGATION_MODE="${TB3_NAVIGATION_MODE:-}"
 NAV_ARGUMENTS=()
 POINTS_FILE="${TB3_POINTS_FILE:-${HOME}/points.txt}"
 INITIAL_POSE=()
@@ -33,6 +33,9 @@ while [[ $# -gt 0 ]]; do
     *) NAV_ARGUMENTS+=("$1"); shift ;;
   esac
 done
+if [[ -z "${NAVIGATION_MODE}" ]]; then
+  NAVIGATION_MODE="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from lw2_config import load_navigation_config; print(load_navigation_config()["default_mode"])' "${SCRIPT_DIR}")"
+fi
 case "${NAVIGATION_MODE}" in
   position|orientation|proximity) ;;
   *) echo "Неверный --mode: ${NAVIGATION_MODE}" >&2; exit 2 ;;
@@ -126,7 +129,13 @@ from pathlib import Path
 import yaml
 sys.path.insert(0, sys.argv[3])
 from navigation_modes import behavior_tree
+from lw2_config import apply_navigation_config
+from navigation_controller import configure_warehouse_controller
 params = yaml.safe_load(Path(sys.argv[1]).read_text())
+config = apply_navigation_config(params)
+configure_warehouse_controller(params)
+print("Контроллер склада: Regulated Pure Pursuit, скорость до 0.15 м/с")
+print(f"Радиус прибытия proximity: {config['proximity_radius']} м (lw2_config.json)")
 params['bt_navigator']['ros__parameters']['default_nav_to_pose_bt_xml'] = behavior_tree(sys.argv[4])
 if len(sys.argv) > 5:
     x, y, yaw = map(float, sys.argv[5:8])

@@ -17,9 +17,11 @@ class NavigationProfileTests(unittest.TestCase):
         parser = argparse.ArgumentParser()
         add_mode_arguments(parser)
         add_trail_arguments(parser)
-        self.assertEqual(parser.parse_args([]).navigation_mode, "position")
+        self.assertEqual(parser.parse_args([]).navigation_mode, "proximity")
         self.assertIsNone(parser.parse_args([]).trail)
         self.assertEqual(parser.parse_args(["--orientation"]).navigation_mode, "orientation")
+        self.assertEqual(parser.parse_args(["--mode", "position"]).navigation_mode, "position")
+        self.assertEqual(parser.parse_args(["--ignore-orientation"]).navigation_mode, "position")
         self.assertEqual(parser.parse_args(["--mode", "proximity"]).navigation_mode, "proximity")
         self.assertIs(parser.parse_args(["--no-trail"]).trail, False)
 

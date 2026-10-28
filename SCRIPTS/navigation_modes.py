@@ -1,8 +1,10 @@
 """Shared navigation defaults for direct Nav2 and JSON MQTT commands."""
 
 from pathlib import Path
+from lw2_config import load_navigation_config
 
 
+DEFAULT_MODE = load_navigation_config()["default_mode"]
 MODES = ("position", "orientation", "proximity")
 TREES = {
     "position": "position_only_navigation.xml",
@@ -17,14 +19,14 @@ def behavior_tree(mode):
     return str(Path(__file__).with_name(TREES[mode]))
 
 
-def add_mode_arguments(parser, default="position"):
+def add_mode_arguments(parser, default=DEFAULT_MODE):
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--mode", choices=MODES, dest="navigation_mode",
-                       help="position: X/Y; orientation: X/Y + сохранённый угол; proximity: радиус 0.3 м")
+                       help="position: X/Y; orientation: X/Y + сохранённый угол; proximity: радиус из lw2_config.json")
     modes.add_argument("--orientation", dest="navigation_mode", action="store_const",
                        const="orientation", help="Достигать также сохранённой ориентации точки")
     modes.add_argument("--ignore-orientation", dest="navigation_mode", action="store_const",
-                       const="position", help="Прибытие по X/Y (режим по умолчанию)")
+                       const="position", help="Точное прибытие по X/Y (0.03 м), без конечного доворота")
     parser.set_defaults(navigation_mode=default)
 
 

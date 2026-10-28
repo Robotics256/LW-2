@@ -22,7 +22,7 @@ class NavigationShutdownTests(unittest.TestCase):
             root = Path(directory)
             scripts = root / 'SCRIPTS'
             scripts.mkdir()
-            for name in ('S3_startNav.sh', 'navigation_modes.py', 'stop_previous_navigation.py'):
+            for name in ('S3_startNav.sh', 'navigation_modes.py', 'navigation_controller.py', 'lw2_config.py', 'lw2_config.json', 'stop_previous_navigation.py'):
                 shutil.copyfile(ROOT / 'SCRIPTS' / name, scripts / name)
             setup = root / 'ros2_ws/install/setup.bash'
             setup.parent.mkdir(parents=True)
@@ -30,7 +30,7 @@ class NavigationShutdownTests(unittest.TestCase):
             params = root / 'params'
             params.mkdir()
             (params / 'warehouse_burger.yaml').write_text(
-                'bt_navigator:\n  ros__parameters: {}\namcl:\n  ros__parameters: {}\n')
+                'bt_navigator:\n  ros__parameters: {}\namcl:\n  ros__parameters: {}\ncontroller_server:\n  ros__parameters:\n    proximity_goal_checker: {}\n')
             map_file = root / 'map.yaml'
             map_file.touch()
             marker_file = root / 'missing_points.txt'

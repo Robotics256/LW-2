@@ -38,8 +38,11 @@ LW-2/
 │   ├── teleop_keyboard_save.py   # ручное управление и запись точек
 │   ├── show_waypoints.py         # отображение сохранённых точек при запуске мира
 │   ├── mqtt_driver.py            # мост MQTT → Nav2
+│   ├── clear_navigation_trails.py # очистка накопленных следов Gazebo
 │   ├── sent_one_task.py          # отправка отдельного задания
-│   ├── sent_many_task.py         # последовательная отправка заданий
+│   ├── task_client.py            # MQTT-клиент TaskClient
+│   ├── sent_many_task.py         # редактируемый пример доставки
+│   ├── sent_many_task_cli.py     # точки и up/down из аргументов
 │   ├── send_command.py           # JSON status, history и Stop
 │   ├── start_tb3.sh              # мир + Nav2 + MQTT одной командой
 │   ├── manual_load.py             # ручная команда загрузки через MQTT
@@ -76,6 +79,32 @@ chmod +x ./LW-2/SCRIPTS/*.sh
 ./LW-2/SCRIPTS/S1_installRos2.sh
 ```
 
+## Прибытие в точку
+
+Без явно заданного режима используется `proximity`: робот считается прибывшим,
+когда расстояние до точки не превышает **0,30 м**, без конечного доворота.
+Это общий стандарт для `navigate_waypoints.py`, MQTT-драйвера, Nav2 через
+`S3_startNav.sh` и совместного запуска `start_tb3.sh`.
+
+| Режим | Условие завершения |
+|---|---|
+| `proximity` (по умолчанию) | расстояние по X/Y не больше 0,30 м, ориентация не учитывается |
+| `position` | расстояние по X/Y не больше 0,03 м, ориентация не учитывается |
+| `orientation` | расстояние по X/Y не больше 0,03 м, ошибка угла не больше 0,1 рад |
+
+`--mode position` или `--ignore-orientation` явно включает точное
+прибытие без доворота. `--orientation` равнозначен `--mode orientation`.
+У MQTT-отправителей отсутствие `Mode` сохраняет режим драйвера; явное поле
+`Mode` в задании Point имеет приоритет над ним. Для точек загрузки при
+необходимости задавайте точный режим отдельно. Треугольник ставится в
+фактическом месте остановки, которое может отличаться от координат цели.
+
+Радиус задаётся в `proximity_goal_checker.xy_goal_tolerance` файла
+`ros2_ws/src/turtlebot3_simulations/turtlebot3_gazebo/params/warehouse_burger.yaml`
+(0.30 метра). Если меняете его, обновите установленный пакет workspace
+через `colcon build --symlink-install` и перезапустите Nav2. Отдельного
+аргумента `--radius` у отправителей нет.
+
 ## Полная последовательность лабораторной
 
 Ниже приведён рабочий порядок из методички для Ubuntu 22.04,
@@ -102,12 +131,14 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    записываться точки:
 
    ```bash
+   source /opt/ros/humble/setup.bash
+   source ./LW-2/ros2_ws/install/setup.bash
    python3 ./LW-2/SCRIPTS/teleop_keyboard_save.py ./points.txt --show-waypoints
    ```
 
 4. Объедьте все доступные проезды. **Во время этого же объезда одновременно
    расставляйте точки:** останавливайтесь в нужных местах, нажимайте `G` в
-   терминале `teleop_keyboard_save.py` и вводите имена (`parking`, `target1`,
+   терминале `teleop_keyboard_save.py` и вводите имена (`S2`, `T1`,
    `way_a` и т. п.). Повторно проезжать весь склад после сохранения карты не
    требуется.
 
@@ -136,7 +167,7 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    |---|---|
    | A1–A4 | `A1`, `A2`, `A3`, `A4` в проходе A, напротив стеллажей 1, 3, 5 и 7 |
    | B1–B4 | `B1`, `B2`, `B3`, `B4` в проходе B, напротив стеллажей 1, 3, 5 и 7 |
-   | T1–T3 | `target1`, `target2`, `target3` у рабочих зон |
+   | T1–T3 | `T1`, `T2`, `T3` у рабочих зон |
    | S1–S3 | **Три отдельные точки стоянки:** `S1`, `S2`, `S3` |
    | P1–P12 | Пример промежуточных точек `P1`–`P12` в проходах и у поворотов для построения графа |
 
@@ -149,8 +180,6 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    Имена A, B, P, S вводите латинскими буквами; регистр должен совпадать
    с именами в программе доставки. Не путайте точки загрузки `A1`–`A4`
    и `B1`–`B4` с подписями физических стеллажей вида `A1_1` и `B2_7`.
-   Если программа использует начальную точку `parking`, дополнительно
-   сохраните это имя в том же месте, что и `S2`.
    Координаты всех точек записывайте при объезде собственной SLAM-карты.
    Параметр `--show-waypoints` в команде шага 3 включает зелёные метки
    в Gazebo и RViz: отображаются точки из выбранного файла и новые точки
@@ -195,7 +224,7 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    source /opt/ros/humble/setup.bash
    source ./LW-2/ros2_ws/install/setup.bash
    python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
-     ./points.txt target1 --speed 0.15 --trail 7
+     ./points.txt T1 --speed 0.15 --trail НОМЕР_ВАРИАНТА
    ```
 
    В каждом новом терминале сначала подключите оба файла `setup.bash`. Без
@@ -203,7 +232,7 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    `ModuleNotFoundError: No module named 'rclpy'`.
 
    Скорость должна быть больше `0` и не превышать `0.30` м/с. Несколько имён выполняются
-   последовательно, например `parking way_a target1`.
+   последовательно, например `S2 way_a T1`.
 
 8. После проверки без MQTT запустите MQTT-драйвер и отправляйте задания из
    MQTTX либо MQTT-скриптами:
@@ -211,8 +240,34 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
    ```bash
    source /opt/ros/humble/setup.bash
    source ./LW-2/ros2_ws/install/setup.bash
-   python3 ./LW-2/SCRIPTS/mqtt_driver.py
+   python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail НОМЕР_ВАРИАНТА
    ```
+
+9. Сначала выполните доставку из Python-кода на **хостовой системе** вне
+   Ubuntu/WSL. Настройте одинаковые MQTT-параметры в хостовой и Ubuntu-копии.
+   В `sent_many_task.py` изучите и измените `main()`; используйте её как основу
+   задания. В начале этого файла задайте `MQTT_BROKER`, `MQTT_PORT`,
+   `WORKSPACE` и `MODULE_NAME`: адрес брокера, порт, рабочую область и имя
+   робота в MQTT. Они явно передаются в `TaskClient(...)`. У драйвера в
+   Ubuntu задайте такие же значения в `SCRIPTS/lw2_config.py`.
+   Замените примерные имена P1, A2, T1, S2 на сохранённые у вас точки.
+   Из PowerShell Windows, в папке, содержащей LW-2:
+
+   ```powershell
+   py -m pip install paho-mqtt
+   py .\LW-2\SCRIPTS\sent_many_task.py
+   ```
+
+10. Альтернатива для проверки готовой последовательности из консоли хоста:
+
+    ```powershell
+    py .\LW-2\SCRIPTS\sent_many_task_cli.py P1 A2 up T1 down S2 --points-file .\points.txt
+    ```
+
+    `up` — загрузка и красный треугольник, `down` — выгрузка и синий.
+    Путь points.txt здесь относится к Windows. Каждый шаг ждёт статуса 0;
+    при ошибке или тайм-ауте дальнейшие шаги не отправляются. Промежуточные
+    точки можно вставлять между шагами. В отчёте покажите обе грузовые метки.
 
 Перед любой отправкой проверьте, что Nav2 активен, начальная поза задана и в
 `./points.txt` есть запрошенное имя. Карта и точки создаются за один общий
@@ -270,9 +325,9 @@ ROS 2 Humble и TurtleBot3 Burger. Окна Gazebo и RViz не закрывай
 Совместный запуск Gazebo, Nav2 и JSON MQTT-драйвера:
 
 ```bash
-./LW-2/SCRIPTS/start_tb3.sh ./warehouse_map.yaml --points-file ./points.txt
+./LW-2/SCRIPTS/start_tb3.sh ./warehouse_map.yaml --points-file ./points.txt --trail НОМЕР_ВАРИАНТА
 ./LW-2/SCRIPTS/start_tb3.sh ./automotive_map.yaml \
-  --world automotive --points-file ./points_automotive.txt
+  --world automotive --points-file ./points_automotive.txt --trail НОМЕР_ВАРИАНТА
 ```
 
 Без пути карты этот скрипт использует эталонную карту выбранного мира;
@@ -423,8 +478,8 @@ ros2 launch turtlebot3_cartographer cartographer.launch.py use_sim_time:=true
 
 Рекомендуемый набор имён:
 
-- `parking` — место стоянки;
-- `target1` и `target2` — зоны загрузки и выгрузки;
+- `S2` — место стоянки;
+- `T1` и `T2` — зоны загрузки и выгрузки;
 - `way_a`, `way_e` и другие `way_*` — промежуточные точки маршрутов.
 
 Когда объезд и расстановка точек закончены, сохраните карту:
@@ -485,7 +540,7 @@ Nav2 и RViz. Если процессы не отвечают на обычну�
 ```bash
 source /opt/ros/humble/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
-python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt target1 --ignore-orientation
+python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt T1 --trail НОМЕР_ВАРИАНТА
 ```
 
 Позиционные параметры команды:
@@ -493,32 +548,32 @@ python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt target1 --ignore-orien
 | Параметр | Значение в примере | Описание |
 |---|---|---|
 | `points_file` | `./points.txt` | путь к файлу сохранённых точек |
-| `points` | `target1` | одно или несколько имён точек для последовательного маршрута |
+| `points` | `T1` | одно или несколько имён точек для последовательного маршрута |
 
 Дополнительные параметры:
 
 | Параметр | Значение | Описание |
 |---|---|---|
-| `--mode position` | по умолчанию | прибытие по X/Y с допуском 0.03 м, без конечного доворота |
+| `--mode position` | явно | прибытие по X/Y с допуском 0.03 м, без конечного доворота |
 | `--orientation`, `--mode orientation` | флаг / режим | также достигать сохранённого угла с допуском 0.1 рад |
-| `--mode proximity` | режим | прибытие в радиусе 0.3 м, без конечного доворота |
-| `--ignore-orientation` | совместимый флаг | явно выбрать стандартный режим `position` |
+| `--mode proximity` | по умолчанию | прибытие в радиусе 0.3 м, без конечного доворота |
+| `--ignore-orientation` | совместимый флаг | явно выбрать точный режим `position` |
 | `--speed ЧИСЛО` | `0.20` м/с по умолчанию | максимальная линейная скорость; допустимо `0 < speed <= 0.30` м/с |
-| `--trail [1–21]` | след включён по умолчанию | выбрать цвет следа; без номера он синий, с номером — из `SCRIPTS/lw2_config.json` |
+| `--trail НОМЕР_ВАРИАНТА` | след включён по умолчанию | выбрать цвет следа; без номера он синий, с номером — из `SCRIPTS/lw2_config.json` |
 | `--no-trail` | флаг | отключить след движения |
 
 Например, для скорости `0.15` м/с:
 
 ```bash
 python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
-  ./points.txt target1 --ignore-orientation --speed 0.15
+  ./points.txt T1 --speed 0.15 --trail НОМЕР_ВАРИАНТА
 ```
 
 Для последовательного маршрута перечислите несколько имён точек:
 
 ```bash
 python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
-  ./points.txt parking way_a target1 --ignore-orientation --speed 0.15
+  ./points.txt S2 way_a T1 --speed 0.15 --trail НОМЕР_ВАРИАНТА
 ```
 
 Перед первым использованием этого режима перезапустите Nav2, чтобы он загрузил
@@ -527,10 +582,10 @@ python3 ./LW-2/SCRIPTS/navigate_waypoints.py \
 Флаг `--trail` можно объединять с другими параметрами:
 
 ```bash
-python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt target1 --ignore-orientation --trail
+python3 ./LW-2/SCRIPTS/navigate_waypoints.py ./points.txt T1 --trail НОМЕР_ВАРИАНТА
 ```
 
-Чтобы выбрать цвет следа, передайте номер от 1 до 21, например `--trail 7`.
+Вместо `НОМЕР_ВАРИАНТА` подставьте свой номер варианта от 1 до 21 (без скобок), например `--trail 7` для варианта 7.
 Все 21 цвета хранятся в разделе `trail_colors` общего файла
 `SCRIPTS/lw2_config.json` в формате RGB от `0` до `1`; их можно свободно
 изменить. Другой общий конфиг можно передать через `--config /путь/config.json`.
@@ -551,7 +606,7 @@ Nav2 не сможет построить или выполнить маршру
 
 ### Терминал 4 — MQTT-драйвер
 
-Общие MQTT-настройки драйвера и всех отправителей находятся в
+Настройки MQTT-драйвера и значения по умолчанию консольных отправителей находятся в
 `SCRIPTS/lw2_config.py`. Их можно переопределить переменными окружения
 `TB3_MQTT_BROKER`, `TB3_MQTT_PORT`, `TB3_MQTT_WORKSPACE`, `TB3_MQTT_NAME`,
 `TB3_MQTT_USERNAME` и `TB3_MQTT_PASSWORD`. Установите одинаковые значения
@@ -567,14 +622,14 @@ Nav2 не сможет построить или выполнить маршру
 cd "$HOME"
 source /opt/ros/humble/setup.bash
 source ./LW-2/ros2_ws/install/setup.bash
-python3 ./LW-2/SCRIPTS/mqtt_driver.py
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail НОМЕР_ВАРИАНТА
 ```
 
 По умолчанию MQTT-драйвер принимает прибытие по X/Y. Чтобы требовать
 сохранённый конечный угол для сообщений без поля `Mode`:
 
 ```bash
-python3 ./LW-2/SCRIPTS/mqtt_driver.py --orientation
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --orientation --trail НОМЕР_ВАРИАНТА
 ```
 
 Поле `Mode` в конкретном `Point` имеет приоритет над параметром драйвера.
@@ -582,7 +637,7 @@ python3 ./LW-2/SCRIPTS/mqtt_driver.py --orientation
 Пунктирный след включён по умолчанию; можно выбрать цвет или отключить его:
 
 ```bash
-python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail 7
+python3 ./LW-2/SCRIPTS/mqtt_driver.py --trail НОМЕР_ВАРИАНТА
 python3 ./LW-2/SCRIPTS/mqtt_driver.py --no-trail
 ```
 
@@ -607,7 +662,7 @@ MQTT-драйвер принимает штатные типы задач `Uploa
 статусов и идемпотентность по `Task.Id`, что и задача `Point`.
 
 При `Upload` в текущей позиции остаётся красный треугольник, а верхняя часть
-робота становится красной. При `Download` остаётся зелёный треугольник, а
+робота становится красной. При `Download` остаётся синий треугольник, а
 красная накладка снимается. Треугольники расположены выше меток пути и
 сохранённых точек, не имеют коллизий и сохраняются до перезапуска Gazebo.
 
@@ -631,6 +686,22 @@ MQTT-драйвер принимает штатные типы задач `Uploa
 `mqtt_driver.py --config /путь/к/config.json`. Старое имя аргумента
 `--cargo-config` сохранено как совместимый псевдоним.
 
+### Дополнительные параметры запуска
+
+| Команда | Необязательные параметры |
+|---|---|
+| `S2_startMapping.sh`, `S2_startSim.sh` | `world:=small/large/automotive/stage4`, `points_file:=ПУТЬ`, `lidar_visual:=true/false`, `show_waypoints:=true/false` |
+| `teleop_keyboard_save.py ФАЙЛ` | `--show-waypoints`, `--collision-monitor`, `--config ФАЙЛ.json` |
+| `S3_startNav.sh КАРТА.yaml` | `points_file:=ПУТЬ`, `--mode РЕЖИМ`, `--orientation`, `--initial-pose X Y YAW` (map, метры и радианы) |
+| `navigate_waypoints.py ФАЙЛ ТОЧКИ` | `--mode РЕЖИМ`, `--orientation`, `--speed 0.15` (максимум 0.30), `--trail НОМЕР_ВАРИАНТА` (1–21), `--no-trail`, `--config ФАЙЛ.json` |
+| `mqtt_driver.py` | `--points-file ПУТЬ`, `--mode РЕЖИМ`, `--orientation`, `--trail НОМЕР_ВАРИАНТА`, `--no-trail`, `--config ФАЙЛ.json`, `--task-history 100`, `--max-tasks 100` |
+| `sent_one_task.py`, `sent_many_task_cli.py` | `--points-file ПУТЬ`, `--mode РЕЖИМ`, `--orientation`, `--ignore-orientation`; у `sent_many_task_cli.py` также `--broker`, `--port`, `--workspace`, `--name` |
+| `start_tb3.sh КАРТА.yaml` | `--world МИР`, `--points-file ПУТЬ`, `--mode РЕЖИМ`, `--orientation`, `--headless`, `--trail НОМЕР_ВАРИАНТА`, `--no-trail` |
+
+Вместо РЕЖИМ укажите `proximity`, `position` или `orientation`.
+Для уже собранной Ubuntu-копии после обновления только SCRIPTS пересборка
+не нужна. Перед установкой целей в RViz всё равно задайте 2D Pose Estimate.
+
 ## 6. Отправка задания через MQTT
 
 Отправитель MQTT не требует ROS 2: задание можно публиковать как из WSL, так и
@@ -652,7 +723,7 @@ MQTT-драйвер принимает штатные типы задач `Uploa
       "Task": {
         "Id": 67890,
         "Type": "Point",
-        "Data": "parking"
+        "Data": "S2"
       }
     }
   }
@@ -685,24 +756,112 @@ MQTT-драйвер принимает штатные типы задач `Uploa
 Отправка одного задания:
 
 ```bash
-python3 ./LW-2/SCRIPTS/sent_one_task.py parking
-python3 ./LW-2/SCRIPTS/sent_one_task.py parking --orientation
+python3 ./LW-2/SCRIPTS/sent_one_task.py S2
+python3 ./LW-2/SCRIPTS/sent_one_task.py S2 --orientation
 ```
 
 Скрипт отправляет одно задание. Последний аргумент — существующее имя точки из
-`./points.txt`; например, замените `parking` на `target1`.
+`./points.txt`; например, замените `S2` на `T1`.
 
-Последовательный маршрут с ожиданием статуса `0` после каждой точки:
+Сначала изучите и запустите пример доставки в `sent_many_task.py`:
 
 ```bash
-python3 ./LW-2/SCRIPTS/sent_many_task.py parking target1 way_a target2 parking
+python3 ./LW-2/SCRIPTS/sent_many_task.py
 ```
 
-У обоих отправителей есть `--mode position|orientation|proximity` и
-сокращение `--orientation`; стандартный режим — X/Y (`position`).
+Класс `TaskClient` находится в `SCRIPTS/task_client.py`; пример и консольный
+отправитель подключают его через `from task_client import TaskClient`.
+Для своего управляющего файла в `SCRIPTS` используйте тот же импорт.
+В начале `sent_many_task.py` студенты изменяют настройки MQTT прямо в коде:
+
+```python
+MQTT_BROKER = "broker.emqx.io"
+MQTT_PORT = 1883
+WORKSPACE = "space_v21"
+MODULE_NAME = "amr1_v21"
+```
+
+Они передаются при создании клиента:
+
+```python
+client = TaskClient(broker=MQTT_BROKER, port=MQTT_PORT,
+                    workspace=WORKSPACE, module_name=MODULE_NAME)
+```
+
+Топики и имя модуля в заданиях формируются из этих значений. У драйвера
+в Ubuntu настройки должны совпадать. Для консольного отправителя задайте
+`--broker АДРЕС --port 1883 --workspace РАБОЧАЯ_ОБЛАСТЬ --name ИМЯ_РОБОТА`.
+Без этих аргументов CLI использует значения из `lw2_config.py` и окружения.
+
+Имена точек задаются в `main()`. Перемещения расписаны явно, без цикла:
+P1 → A2 → up → T1 → down → S2. Замените их своими точками. Эту функцию рекомендуется
+использовать как основу задания. На Windows-хосте запускайте через `py`.
+
+Альтернативный консольный отправитель `sent_many_task_cli.py` принимает
+точки и грузовые команды в одном списке:
+
+```bash
+python3 ./LW-2/SCRIPTS/sent_many_task_cli.py \
+  P1 A2 up T1 down S2 --points-file ./points.txt
+```
+
+`up` — загрузка (`Upload`), `down` — выгрузка (`Download`). Слова `up` и
+`down` в нижнем регистре зарезервированы и не могут служить именами точек.
+Каждый шаг ждёт статуса 0. При ошибке дальнейшие шаги не отправляются.
+Файл точек нужен только если последовательность содержит перемещения.
+На хосте укажите путь к доступной там копии points.txt.
+
+Последовательный маршрут только из точек:
+
+```bash
+python3 ./LW-2/SCRIPTS/sent_many_task_cli.py S2 T1 way_a T2 S2
+```
+
+У sent_one_task.py и sent_many_task_cli.py есть `--mode position|orientation|proximity` и
+сокращение `--orientation`; без явного режима используется настройка драйвера, стандартно `proximity`.
 
 Аргументы задают последовательность точек. Скрипт ждёт статус `0` для каждой
 точки перед отправкой следующей; тайм-аут одного задания — 300 секунд.
+
+### Включение загрузки и выгрузки в программу доставки
+
+У `TaskClient` из `task_client.py` есть метод `send_cargo_task("load")`
+для загрузки и `send_cargo_task("unload")` для выгрузки. Эти вызовы отправляют
+штатные задания `Upload` и `Download`. После каждой операции нужно дождаться
+`wait_task_success`: публикация сообщения сама по себе не подтверждает
+появление треугольника. При ошибке Gazebo доставка должна прерываться.
+
+```python
+from task_client import TaskClient
+
+client = TaskClient(broker="broker.emqx.io", port=1883,
+                    workspace="space_v21", module_name="amr1_v21")
+try:
+    task_id = client.send_move_task("T1")
+    client.wait_task_success(task_id, timeout=300)
+    task_id = client.send_cargo_task("load")
+    client.wait_task_success(task_id, timeout=30)
+
+    task_id = client.send_move_task("T2")
+    client.wait_task_success(task_id, timeout=300)
+    task_id = client.send_cargo_task("unload")
+    client.wait_task_success(task_id, timeout=30)
+finally:
+    client.close()
+```
+
+Замените `T1` и `T2` именами своих точек. Промежуточные точки маршрута
+также выполняйте последовательно с ожиданием успешного завершения.
+Управляющая программа работает на хосте, MQTT-драйвер и Gazebo — в Ubuntu.
+На хосте нужны Python, `paho-mqtt` и модули из `SCRIPTS`; ROS 2 не требуется.
+Параметр `--points-file` у драйвера и пути в командах Ubuntu относятся к Ubuntu.
+Для CLI-отправителей на хосте указывайте путь к доступной там копии points.txt.
+
+В Gazebo после загрузки остаётся красный треугольник, после выгрузки — синий.
+Отправляйте грузовую команду только после подтверждённого прибытия: драйвер
+разрешает отдельное грузовое задание и во время движения, поэтому ранняя
+отправка оставит метку в промежуточном месте. В отчёте покажите обе метки
+после отъезда робота и статусы `0` соответствующих заданий.
 
 Ручная активация загрузки и выгрузки:
 
@@ -732,10 +891,13 @@ python3 ./LW-2/SCRIPTS/send_command.py Stop
 
 На основе `sent_many_task.py` требуется реализовать два процесса:
 
-1. Маршрут A: `parking → target1 → way_a → target2 → parking`.
-2. Маршрут B: `parking → target2 → way_e → target1 → parking`.
+1. Маршрут A: `S1 → T1 → way_a → T2 → S2`.
+2. Маршрут B: `S2 → T2 → way_e → T1 → S2`.
 
-После прибытия в `target1` и `target2` программа должна выводить в консоль сообщение о загрузке или выгрузке груза. Выбор маршрута можно организовать через консольный ввод. Фактические имена точек в коде должны соответствовать вашему файлу `points.txt`.
+После прибытия в точку загрузки отправьте `send_cargo_task("load")`, в точку
+выгрузки — `send_cargo_task("unload")`; после каждой команды дождитесь
+`wait_task_success`. Красный и синий треугольники обязательны; сообщения
+в консоль дополняют их. Выбор маршрута можно организовать через консольный ввод. Фактические имена точек в коде должны соответствовать вашему файлу `points.txt`.
 
 ## Что включить в отчёт
 
@@ -746,6 +908,89 @@ python3 ./LW-2/SCRIPTS/send_command.py Stop
 - результат (снимок экрана консоли) запуска `sent_one_task.py`;
 - код последовательного маршрута и положения робота в его точках;
 - реализацию и результаты маршрутов A и B;
+- красный треугольник загрузки, синий треугольник выгрузки и статусы этих заданий;
 - выводы по работе.
 
 Все запущенные процессы завершаются сочетанием `Ctrl+C` в соответствующих терминалах.
+
+
+## Радиус прибытия к точке
+
+В `SCRIPTS/lw2_config.json` задайте расстояние в метрах:
+
+```json
+"navigation": {
+  "default_mode": "proximity",
+  "proximity_radius": 0.30
+}
+```
+
+В режиме `proximity` робот считается прибывшим в пределах этого радиуса,
+без проверки конечного угла. Значение должно быть конечным числом больше нуля.
+`S3_startNav.sh` читает JSON и переносит радиус во временный YAML Nav2.
+Это работает также при запуске через `start_tb3.sh`, для прямых целей,
+MQTT и RViz при выбранном режиме `proximity`. После изменения JSON
+перезапустите навигацию. Пересборка workspace не требуется.
+Редактируйте JSON в Ubuntu-копии, из которой запускается навигация.
+Режимы `position` и `orientation` сохраняют свои допуски из YAML.
+При ручном запуске Nav2 в обход `S3_startNav.sh` JSON не применяется.
+
+
+### Очистка следов движения в симуляторе
+
+Если накопившиеся следы мешают просмотру, после завершения движения можно
+очистить их без перезапуска симуляции. В отдельном терминале Ubuntu выполните:
+
+```bash
+source /opt/ros/humble/setup.bash
+source ./LW-2/ros2_ws/install/setup.bash
+python3 ./LW-2/SCRIPTS/clear_navigation_trails.py
+```
+
+Программа удаляет существующие точки следа всех цветов. При следующих
+перемещениях след снова появляется, если он включён. Робот, склад,
+сохранённые точки и треугольники загрузки/выгрузки остаются на месте.
+Симулятор Gazebo должен работать. При очистке во время движения новые точки
+могут появляться уже в ходе очистки; удобнее выполнять её между заданиями.
+Параметр `--trail НОМЕР_ВАРИАНТА` задаётся у `navigate_waypoints.py`,
+MQTT-драйвера или `start_tb3.sh`, а не у MQTT-отправителей заданий.
+
+
+### Режим прибытия по умолчанию
+
+В `SCRIPTS/lw2_config.json` параметр `navigation.default_mode` задаёт режим:
+
+| Значение | Условие прибытия |
+| --- | --- |
+| `orientation` | Достичь позиции и сохранённого направления робота |
+| `position` | Достичь позиции без проверки конечного направления |
+| `proximity` | Войти в радиус `navigation.proximity_radius`, без проверки направления |
+
+По умолчанию сохранён режим `proximity`. Настройка применяется при новом
+запуске прямой навигации, MQTT-драйвера, `S3_startNav.sh` и `start_tb3.sh`.
+Для целей из RViz режим задаётся при запуске Nav2. После изменения JSON
+перезапустите Nav2 и MQTT-драйвер; пересборка не нужна.
+Явные `--mode`, `--orientation` и `--ignore-orientation` переопределяют режим
+конфига для соответствующей программы. В shell-скриптах также поддерживается
+`TB3_NAVIGATION_MODE` (приоритет ниже явных аргументов). Поле `Mode` в MQTT-задании
+переопределяет режим драйвера только для этого задания; без него используется
+режим драйвера. Отправители `sent_one_task.py` и `sent_many_task.py` без явного
+режима оставляют этот выбор драйверу.
+
+
+### Контроллер движения склада
+
+`S3_startNav.sh` при создании временного YAML подключает штатный контроллер
+Nav2 Regulated Pure Pursuit через `SCRIPTS/navigation_controller.py`.
+Он сначала разворачивает робота вдоль пути, затем ведёт его по проходу.
+Скорость профиля — до 0,15 м/с. Проверяющие модули прибытия остаются прежними:
+режим и радиус берутся из `lw2_config.json` либо явного режима запуска.
+Изменение применяется и при запуске через `start_tb3.sh`; пересборка не нужна.
+На повороте после `p1` DWB мог выбирать почти нулевую скорость и повторять
+восстановительные вращения, хотя глобальный путь был построен.
+
+Сообщение `Transform data too old when converting from map to odom` означает,
+что навигация использует устаревшие данные локализации. Проверьте поступление
+`/scan`, `/odom`, `/clock` и TF, отсутствие второй симуляции и единую настройку
+`use_sim_time`. После восстановления данных перезапустите Nav2 и задайте
+текущую начальную позу. Не увеличивайте радиус прибытия для обхода этой ошибки.

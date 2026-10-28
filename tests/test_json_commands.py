@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "SCRIPTS"))
 from mqtt_tasks import JsonTasks
 from send_command import build_command_payload
 from sent_one_task import build_task_payload as single_payload
-from sent_many_task import build_task_payload as route_payload
+from task_client import build_task_payload as route_payload
 
 
 def point(identifier, name="parking", **fields):
@@ -38,10 +38,10 @@ class JsonCommandTests(unittest.TestCase):
         self.assertEqual(self.responses[-1]["StatusInfo"]["CurrentPoint"], "parking")
         self.assertEqual(self.responses[-1]["StatusInfo"]["DeviceStatus"], 0)
 
-    def test_default_xy_and_explicit_orientation_or_proximity(self):
-        for index, mode in enumerate((None, "orientation", "proximity"), 1):
+    def test_default_proximity_and_explicit_modes(self):
+        for index, mode in enumerate((None, "position", "orientation", "proximity"), 1):
             self.submit(point(index, **({"Mode": mode} if mode else {})))
-            self.assertEqual(self.service.take_main()["Mode"], mode or "position")
+            self.assertEqual(self.service.take_main()["Mode"], mode or "proximity")
             self.service.finish(index, True, "arrived")
 
     def test_history_is_bounded_newest_first_and_excludes_active_tasks(self):
